@@ -1,3 +1,62 @@
-# Place all the behaviors and hooks related to the matching controller here.
-# All this logic will automatically be available in application.js.
-# You can use CoffeeScript in this file: http://coffeescript.org/
+
+$(document).ready(function () {
+
+  console.log("GO");
+
+
+  var Q = Quintus({ imagePath: "/assets/"}).include("Sprites").setup();
+
+  Q.Sprite.extend("Drone1", {
+    init: function(p) {
+      this._super({
+        sheet: "signal",
+        frame: 0,
+        x: 45,
+        y: 100,
+      });
+    }
+  });
+
+  Q.Sprite.extend("Drone2", {
+    init: function(p) {
+      this._super({
+        sheet: "signal",
+        frame: 1,
+        x: 136,
+        y: 100,
+      });
+    }
+  });
+
+  Q.Sprite.extend("Drone3", {
+    init: function(p) {
+      this._super({
+        sheet: "signal",
+        frame: 2,
+        x: 227,
+        y: 100,
+      });
+    }
+  });
+
+  Q.load([ "signal_tiles.png"], function() {
+    Q.sheet("signal", "signal_tiles.png", { tilew: 90, tileh: 90, sx:0, sy:0 });
+
+    var player1 = new Q.Drone1();
+    var player2 = new Q.Drone2();
+    var player3 = new Q.Drone3();
+    Q.gameLoop(function (dt) {
+      player1.update(dt);
+      player2.update(dt);
+      player3.update(dt);
+      Q.clear();
+      player1.render(Q.ctx);
+      player2.render(Q.ctx);
+      player3.render(Q.ctx);
+    });
+  });
+
+  console.log("STOP");
+
+});
+
