@@ -13,6 +13,9 @@
 //= require jquery
 //= require quintus
 //= require quintus_sprites
+//= require quintus_input
+//= require quintus_2d
+//= require quintus_scenes
 //= require jquery_ujs
 //= require turbolinks
 //= require_tree .

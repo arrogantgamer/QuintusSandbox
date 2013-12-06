@@ -1,62 +1,127 @@
 
 $(document).ready(function () {
+  var Q = Quintus({ imagePath: "/assets/"}).include("Sprites, Scenes, 2D, Input")
+            .setup({
+              height: 720,
+              width: 1440
+            }).controls();
 
-  console.log("GO");
-
-
-  var Q = Quintus({ imagePath: "/assets/"}).include("Sprites").setup();
-
-  Q.Sprite.extend("Drone1", {
+  // Every instance of Q.Player will have these two components
+  Q.Sprite.extend("Drone", {
     init: function(p) {
-      this._super({
-        sheet: "signal",
-        frame: 0,
-        x: 45,
-        y: 100,
-      });
-    }
-  });
-
-  Q.Sprite.extend("Drone2", {
-    init: function(p) {
-      this._super({
-        sheet: "signal",
-        frame: 1,
-        x: 136,
-        y: 100,
-      });
-    }
-  });
-
-  Q.Sprite.extend("Drone3", {
-    init: function(p) {
-      this._super({
-        sheet: "signal",
-        frame: 2,
-        x: 227,
-        y: 100,
-      });
+      this.add("stepControls");
+      p.sheet = "signal";
+      p.frame = 20;
+      this._super(p);
     }
   });
 
   Q.load([ "signal_tiles.png"], function() {
     Q.sheet("signal", "signal_tiles.png", { tilew: 90, tileh: 90, sx:0, sy:0 });
 
-    var player1 = new Q.Drone1();
-    var player2 = new Q.Drone2();
-    var player3 = new Q.Drone3();
+    var player = new Q.Drone({ x: 45, y: 45 });
+
     Q.gameLoop(function (dt) {
-      player1.update(dt);
-      player2.update(dt);
-      player3.update(dt);
+
+      player.update(dt);
       Q.clear();
-      player1.render(Q.ctx);
-      player2.render(Q.ctx);
-      player3.render(Q.ctx);
+      player.render(Q.ctx);
+
+    });
+  });
+});
+/*
+$(document).ready(function () {
+  var digest_bitmap = function () {
+
+    var nulls = "\
+nnnnnnnnnnnnnnnn\
+nnnnnnnnnnnnnnnn\
+nnnn........nnnn\
+nnnnn..g...nnnnn\
+nnnnnn.......nnn\
+nnnnn.....nnnnnn\
+nnnnnnnnnnnnnnnn\
+nnnnnnnnnnnnnnnn\
+"
+    var sprites = [];
+
+    for(var i = 0; i < nulls.length; i++) {
+      var symbol = nulls[i],
+          klass = Q.legend[symbol],
+          x = 90 * (i % 16),
+          y = 90 * parseInt(i / 16, 10);
+
+      sprites[i] = new klass({ x: x + 45, y: y + 45 });
+    }
+
+    return sprites;
+  };
+
+  console.log("GO");
+
+  var Q = Quintus({ imagePath: "/assets/"})
+            .include("Sprites, Scenes, 2D, Input")
+            .setup({
+              height: 720,
+              width: 1440
+            });
+
+  Q.Sprite.extend("Blank", {
+    init: function(p) {
+      p.sheet = "signal";
+      p.frame = 27;
+      this._super(p);
+    }
+  });
+
+  Q.Sprite.extend("Drone", {
+    init: function(p) {
+      this.add("2d, platformerControls");
+      p.sheet = "signal";
+      this._super(p);
+    }
+  });
+
+  Q.Drone.extend("Null", {
+    init: function (p) {
+      this.del("2d, platformerControls");
+      p.frame = 20;
+      this._super(p);
+    },
+  });
+
+  Q.Drone.extend("GreenDrone", {
+    init: function (p) {
+      p.frame = 22;
+      this._super(p);
+    }
+
+  });
+
+  Q.legend = {
+    '.': Q.Blank,
+    'n': Q.Null,
+    'g': Q.GreenDrone
+  };
+
+  Q.load([ "signal_tiles.png"], function() {
+    Q.sheet("signal", "signal_tiles.png", { tilew: 90, tileh: 90, sx:0, sy:0 });
+
+    var nulls = digest_bitmap();
+
+    Q.gameLoop(function (dt) {
+      var i;
+
+      Q.clear();
+
+      for(i = 0; i < nulls.length; i++) {
+        nulls[i].render(Q.ctx);
+      }
     });
   });
 
   console.log("STOP");
 
 });
-
+*/
