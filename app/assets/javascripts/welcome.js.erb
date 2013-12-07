@@ -1,26 +1,19 @@
 
-$(document).ready(function () {
-  var digest_bitmap = function () {
+window.addEventListener("load", function () {
 
-    var actors = "\
-nnnnnnnnnnnnnnnn\
-nnnnnnnnnnnnnnnn\
-nnnn........nnnn\
-nnnnn..r...nnnnn\
-nnnnnn.......nnn\
-nnnnn.....nnnnnn\
-nnnnnnnnnnnnnnnn\
-nnnnnnnnnnnnnnnn\
-"
+  var digest_bitmap = function (bitmap) {
+
     var sprites = [];
 
-    for(var i = 0; i < actors.length; i++) {
-      var symbol = actors[i],
+    for(var i = 0; i < bitmap.length; i++) {
+      var symbol = bitmap[i],
           klass = Q.legend[symbol],
           x = 90 * (i % 16),
           y = 90 * parseInt(i / 16, 10);
 
-      sprites[i] = new klass({ x: x + 45, y: y + 45 });
+      if (symbol !== ' ') {
+        sprites.push(new klass({ x: x + 45, y: y + 45 }));
+      }
     }
 
     return sprites;
@@ -28,17 +21,25 @@ nnnnnnnnnnnnnnnn\
 
   console.log("GO");
 
-  var Q = Quintus({ imagePath: "/assets/"})
+  var Q = Quintus({ imagePath: "/assets/", development: true})
             .include("Sprites, Scenes, 2D, Input")
             .setup({
               height: 720,
               width: 1440
             }).controls();
 
+  Q.gravityY = 0;
+  Q.gravityX = 0;
+
+  var SPRITE_NONE  = 0;
+  var SPRITE_DRONE = 1;
+  var SPRITE_BLOCK = 2;
+
   Q.Sprite.extend("Blank", {
     init: function(p) {
       p.sheet = "signal";
       p.frame = 27;
+      p.type = SPRITE_NONE;
       this._super(p);
     }
   });
@@ -47,14 +48,22 @@ nnnnnnnnnnnnnnnn\
     init: function(p) {
       p.sheet = "signal";
       p.stepDistance = 90;
+      p.type = SPRITE_DRONE;
+      p.collisionMask = SPRITE_DRONE | SPRITE_BLOCK;
       this._super(p);
-    }
+
+      this.add("2d"); // drone's don't get pushed
+
+    },
+
   });
 
   Q.Drone.extend("Null", {
     init: function (p) {
       p.frame = 20;
       this._super(p);
+
+      this.del("2d"); // we don't want NULLs affected by physics
     },
   });
 
@@ -64,6 +73,30 @@ nnnnnnnnnnnnnnnn\
       this._super(p);
 
       this.add("stepControls");
+
+      this.on("hit", function (collision) {
+        console.log("hit!");
+        var obj = collision.obj;
+
+        if (obj && obj.className === "Null") {
+          // swap them
+          this.swapping = true;
+          this.target = obj;
+          this.stage.remove(this);
+          this.stage.remove(obj);
+        }
+      });
+
+    },
+
+    swap: function (stage, obj) {
+
+      var obj_coords = { x: obj.p.x, y: obj.p.y };
+      stage.insert(new Q.RedDrone(obj_coords));
+      stage.insert(new Q.Null({ x: this.p.x, y: this.p.y }));
+      this.destroy();
+      obj.destroy();
+
     }
 
   });
@@ -74,11 +107,57 @@ nnnnnnnnnnnnnnnn\
     'r': Q.RedDrone
   };
 
+  Q.scene("background", function (stage) {
+    console.log("in background callback");
+    var tiles = digest_bitmap("\
+................\
+................\
+................\
+................\
+................\
+................\
+................\
+................\
+");
+
+    for(var i = 0; i < tiles.length; i++) {
+      stage.insert(tiles[i]);
+    }
+  });
+
+  Q.scene("level1", function (stage) {
+    console.log("in level1 callback");
+    var tiles = digest_bitmap("\
+nnnnnnnnnnnnnnnn\
+nnnnnnnnnnnnnnnn\
+nnnn        nnnn\
+nnnnn  r   nnnnn\
+nnnnnn       nnn\
+nnnnn     nnnnnn\
+nnnnnnnnnnnnnnnn\
+nnnnnnnnnnnnnnnn\
+");
+
+    for(var i = 0; i < tiles.length; i++) {
+      stage.insert(tiles[i]);
+    }
+
+    stage.on("removed", function (obj) {
+      if (obj.swapping === true) {
+        obj.swap(stage, obj.target);
+      }
+    });
+  });
+
   Q.load([ "signal_tiles.png"], function() {
+    console.log("in Q.load callback");
     Q.sheet("signal", "signal_tiles.png", { tilew: 90, tileh: 90, sx:0, sy:0 });
 
-    var actors = digest_bitmap();
+    Q.stageScene("background",0);
+    Q.stageScene("level1", 1);
 
+/*
+    console.log("about to gameloop");
     Q.gameLoop(function (dt) {
       var i;
 
@@ -92,6 +171,7 @@ nnnnnnnnnnnnnnnn\
         actors[i].render(Q.ctx);
       }
     });
+*/
   });
 
   console.log("STOP");
