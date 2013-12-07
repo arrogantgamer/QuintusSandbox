@@ -1,44 +1,12 @@
 
 $(document).ready(function () {
-  var Q = Quintus({ imagePath: "/assets/"}).include("Sprites, Scenes, 2D, Input")
-            .setup({
-              height: 720,
-              width: 1440
-            }).controls();
-
-  // Every instance of Q.Player will have these two components
-  Q.Sprite.extend("Drone", {
-    init: function(p) {
-      this.add("stepControls");
-      p.sheet = "signal";
-      p.frame = 20;
-      this._super(p);
-    }
-  });
-
-  Q.load([ "signal_tiles.png"], function() {
-    Q.sheet("signal", "signal_tiles.png", { tilew: 90, tileh: 90, sx:0, sy:0 });
-
-    var player = new Q.Drone({ x: 45, y: 45 });
-
-    Q.gameLoop(function (dt) {
-
-      player.update(dt);
-      Q.clear();
-      player.render(Q.ctx);
-
-    });
-  });
-});
-/*
-$(document).ready(function () {
   var digest_bitmap = function () {
 
-    var nulls = "\
+    var actors = "\
 nnnnnnnnnnnnnnnn\
 nnnnnnnnnnnnnnnn\
 nnnn........nnnn\
-nnnnn..g...nnnnn\
+nnnnn..r...nnnnn\
 nnnnnn.......nnn\
 nnnnn.....nnnnnn\
 nnnnnnnnnnnnnnnn\
@@ -46,8 +14,8 @@ nnnnnnnnnnnnnnnn\
 "
     var sprites = [];
 
-    for(var i = 0; i < nulls.length; i++) {
-      var symbol = nulls[i],
+    for(var i = 0; i < actors.length; i++) {
+      var symbol = actors[i],
           klass = Q.legend[symbol],
           x = 90 * (i % 16),
           y = 90 * parseInt(i / 16, 10);
@@ -65,7 +33,7 @@ nnnnnnnnnnnnnnnn\
             .setup({
               height: 720,
               width: 1440
-            });
+            }).controls();
 
   Q.Sprite.extend("Blank", {
     init: function(p) {
@@ -77,24 +45,25 @@ nnnnnnnnnnnnnnnn\
 
   Q.Sprite.extend("Drone", {
     init: function(p) {
-      this.add("2d, platformerControls");
       p.sheet = "signal";
+      p.stepDistance = 90;
       this._super(p);
     }
   });
 
   Q.Drone.extend("Null", {
     init: function (p) {
-      this.del("2d, platformerControls");
       p.frame = 20;
       this._super(p);
     },
   });
 
-  Q.Drone.extend("GreenDrone", {
+  Q.Drone.extend("RedDrone", {
     init: function (p) {
-      p.frame = 22;
+      p.frame = 21;
       this._super(p);
+
+      this.add("stepControls");
     }
 
   });
@@ -102,21 +71,25 @@ nnnnnnnnnnnnnnnn\
   Q.legend = {
     '.': Q.Blank,
     'n': Q.Null,
-    'g': Q.GreenDrone
+    'r': Q.RedDrone
   };
 
   Q.load([ "signal_tiles.png"], function() {
     Q.sheet("signal", "signal_tiles.png", { tilew: 90, tileh: 90, sx:0, sy:0 });
 
-    var nulls = digest_bitmap();
+    var actors = digest_bitmap();
 
     Q.gameLoop(function (dt) {
       var i;
 
+      for(i = 0; i < actors.length; i++) {
+        actors[i].update(dt);
+      }
+
       Q.clear();
 
-      for(i = 0; i < nulls.length; i++) {
-        nulls[i].render(Q.ctx);
+      for(i = 0; i < actors.length; i++) {
+        actors[i].render(Q.ctx);
       }
     });
   });
@@ -124,4 +97,3 @@ nnnnnnnnnnnnnnnn\
   console.log("STOP");
 
 });
-*/
