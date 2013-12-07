@@ -19,8 +19,6 @@ window.addEventListener("load", function () {
     return sprites;
   };
 
-  console.log("GO");
-
   var Q = Quintus({ imagePath: "/assets/", development: true})
             .include("Sprites, Scenes, 2D, Input")
             .setup({
@@ -44,16 +42,55 @@ window.addEventListener("load", function () {
     }
   });
 
+  Q.Sprite.extend("Block", {
+    init: function(p) {
+      p.sheet = "signal";
+      p.type = SPRITE_BLOCK;
+      this._super(p);
+
+      this.on("hit", this.collide);
+    }
+  });
+
+  Q.Block.extend("Control", {
+    init: function (p) {
+      
+      this._super(p);
+    }
+
+  });
+
+  Q.Control.extend("GreenControl", {
+    init: function (p) {
+      p.frame = 1;
+      this._super(p);
+
+    },
+
+    collide: function (collision) {
+      console.log("green collide");
+
+      if (collision.obj.family === "Drone") {
+        console.log("trigger collide");
+        Q('GreenDrone').trigger("control", "left");
+      }
+    }
+  
+  });
+
   Q.Sprite.extend("Drone", {
     init: function(p) {
+      this.family = "Drone";
       p.sheet = "signal";
       p.stepDistance = 90;
       p.type = SPRITE_DRONE;
       p.collisionMask = SPRITE_DRONE | SPRITE_BLOCK;
       this._super(p);
 
-      this.add("2d"); // drone's don't get pushed
+      this.on("control", this.control);
 
+      this.add("2d"); // drone's don't get pushed
+      this.add("droneControls");
     },
 
   });
@@ -67,44 +104,61 @@ window.addEventListener("load", function () {
     },
   });
 
+  Q.Drone.extend("GreenDrone", {
+    init: function (p) {
+      p.frame = 22;
+      this._super(p);
+
+    },
+
+    control: function (data) {
+      this.p.inputs['left'] = true;
+      this.trigger("step");
+
+    }
+
+  });
+
   Q.Drone.extend("RedDrone", {
     init: function (p) {
       p.frame = 21;
       this._super(p);
 
+      this.del("droneControls");
       this.add("stepControls");
+      this.on("hit", this.collide);
+      this.off("control", this.control);
+    },
 
-      this.on("hit", function (collision) {
-        console.log("hit!");
-        var obj = collision.obj;
+    collide: function (collision) {
+      console.log("hit!");
+      var obj = collision.obj;
 
-        if (obj && obj.className === "Null") {
-          // swap them
-          this.swapping = true;
-          this.target = obj;
-          this.stage.remove(this);
-          this.stage.remove(obj);
-        }
-      });
-
+      if (obj && obj.className === "Null") {
+        // swap them
+        this.swapping = true;
+        this.target = obj;
+        this.stage.remove(this);
+        this.stage.remove(obj);
+      }
     },
 
     swap: function (stage, obj) {
-
       var obj_coords = { x: obj.p.x, y: obj.p.y };
       stage.insert(new Q.RedDrone(obj_coords));
       stage.insert(new Q.Null({ x: this.p.x, y: this.p.y }));
       this.destroy();
       obj.destroy();
-
-    }
+    },
 
   });
 
   Q.legend = {
     '.': Q.Blank,
     'n': Q.Null,
-    'r': Q.RedDrone
+    'r': Q.RedDrone,
+    'g': Q.GreenDrone,
+    'w': Q.GreenControl
   };
 
   Q.scene("background", function (stage) {
@@ -130,9 +184,9 @@ window.addEventListener("load", function () {
     var tiles = digest_bitmap("\
 nnnnnnnnnnnnnnnn\
 nnnnnnnnnnnnnnnn\
-nnnn        nnnn\
+nnnn  w     nnnn\
 nnnnn  r   nnnnn\
-nnnnnn       nnn\
+nnnnnn   g   nnn\
 nnnnn     nnnnnn\
 nnnnnnnnnnnnnnnn\
 nnnnnnnnnnnnnnnn\
@@ -155,25 +209,65 @@ nnnnnnnnnnnnnnnn\
 
     Q.stageScene("background",0);
     Q.stageScene("level1", 1);
-
-/*
-    console.log("about to gameloop");
-    Q.gameLoop(function (dt) {
-      var i;
-
-      for(i = 0; i < actors.length; i++) {
-        actors[i].update(dt);
-      }
-
-      Q.clear();
-
-      for(i = 0; i < actors.length; i++) {
-        actors[i].render(Q.ctx);
-      }
-    });
-*/
   });
 
-  console.log("STOP");
+  Q.component("droneControls", {
 
+    added: function() {
+      var p = this.entity.p;
+      p.inputs = {};
+
+      if(!p.stepDistance) { p.stepDistance = 32; }
+      if(!p.stepDelay) { p.stepDelay = 0.2; }
+
+      p.stepWait = 0;
+      this.entity.on("step",this,"step");
+    },
+
+    step: function(dt) {
+
+      var p = this.entity.p,
+          moved = false;
+      p.stepWait -= dt;
+
+      if(p.stepping) {
+        p.x += p.diffX * dt / p.stepDelay;
+        p.y += p.diffY * dt / p.stepDelay;
+      }
+
+      if(p.stepWait > 0) { return; }
+      if(p.stepping) {
+        p.x = p.destX;
+        p.y = p.destY;
+      }
+      p.stepping = false;
+
+      p.diffX = 0;
+      p.diffY = 0;
+
+      if(p.inputs['left']) {
+        p.diffX = -p.stepDistance;
+        delete p.inputs['left']
+      } else if(p.inputs['right']) {
+        p.diffX = p.stepDistance;
+      }
+
+      if(p.inputs['up']) {
+        p.diffY = -p.stepDistance;
+      } else if(p.inputs['down']) {
+        p.diffY = p.stepDistance;
+      }
+
+      if(p.diffY || p.diffX ) {
+        p.stepping = true;
+        p.origX = p.x;
+        p.origY = p.y;
+        p.destX = p.x + p.diffX;
+        p.destY = p.y + p.diffY;
+        p.stepWait = p.stepDelay;
+      }
+
+    }
+
+  });
 });
