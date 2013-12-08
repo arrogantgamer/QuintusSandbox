@@ -49,13 +49,16 @@ window.addEventListener("load", function () {
       this._super(p);
 
       this.on("hit", this.collide);
-    }
+    },
+
+    collide: function () { }
   });
 
   Q.Block.extend("Control", {
     init: function (p) {
       
       this._super(p);
+      this.add("controlRouter");
     }
 
   });
@@ -63,19 +66,13 @@ window.addEventListener("load", function () {
   Q.Control.extend("GreenControl", {
     init: function (p) {
       p.frame = 1;
+      p.direction = "left";
+      p.target = "GreenDrone";
       this._super(p);
 
     },
 
-    collide: function (collision) {
-      console.log("green collide");
 
-      if (collision.obj.family === "Drone") {
-        console.log("trigger collide");
-        Q('GreenDrone').trigger("control", "left");
-      }
-    }
-  
   });
 
   Q.Sprite.extend("Drone", {
@@ -93,6 +90,11 @@ window.addEventListener("load", function () {
       this.add("droneControls");
     },
 
+    control: function (data) {
+      this.p.inputs['left'] = true;
+      this.trigger("step");
+
+    }
   });
 
   Q.Drone.extend("Null", {
@@ -101,7 +103,15 @@ window.addEventListener("load", function () {
       this._super(p);
 
       this.del("2d"); // we don't want NULLs affected by physics
+      this.off("control", this.control);
     },
+  });
+
+  Q.Drone.extend("PinkDrone", {
+    init: function (p) {
+      p.frame = 23;
+      this._super(p);
+    }
   });
 
   Q.Drone.extend("GreenDrone", {
@@ -109,14 +119,7 @@ window.addEventListener("load", function () {
       p.frame = 22;
       this._super(p);
 
-    },
-
-    control: function (data) {
-      this.p.inputs['left'] = true;
-      this.trigger("step");
-
     }
-
   });
 
   Q.Drone.extend("RedDrone", {
@@ -158,7 +161,8 @@ window.addEventListener("load", function () {
     'n': Q.Null,
     'r': Q.RedDrone,
     'g': Q.GreenDrone,
-    'w': Q.GreenControl
+    'w': Q.GreenControl,
+    'p': Q.PinkDrone
   };
 
   Q.scene("background", function (stage) {
@@ -184,7 +188,7 @@ window.addEventListener("load", function () {
     var tiles = digest_bitmap("\
 nnnnnnnnnnnnnnnn\
 nnnnnnnnnnnnnnnn\
-nnnn  w     nnnn\
+nnnn  w    pnnnn\
 nnnnn  r   nnnnn\
 nnnnnn   g   nnn\
 nnnnn     nnnnnn\
@@ -211,6 +215,34 @@ nnnnnnnnnnnnnnnn\
     Q.stageScene("level1", 1);
   });
 
+  /* Control Router */
+  /* The control router receives and responds to keyboard events,
+   * just like 'stepControls' in the input module. However, rather
+   * than acting on the inputs, the entity in this case responds
+   * by broadcasting the inputs to all relevant actors. A selector
+   * will be defined on the entity to determine which actors are
+   * to be notified. */
+  Q.component("controlRouter", {
+
+    added: function () {
+
+      this.entity.on("hit", this, "collision");
+    },
+
+    collision: function (col) {
+      var p = this.entity.p;
+
+      if (col.obj.family === "Drone") {
+        Q(p.target).trigger("control", p.direction);
+      }
+    }
+  });
+
+  /* Drone Controls */
+  /* This component is pretty much a copy of step controls except
+   * that the source of inputs is an object on the entity, rather
+   * than Q.inputs. An entity that has added drone controls will
+   * respond to keyboard events announced by a control router. */
   Q.component("droneControls", {
 
     added: function() {
@@ -230,6 +262,7 @@ nnnnnnnnnnnnnnnn\
           moved = false;
       p.stepWait -= dt;
 
+      /* mid-step */
       if(p.stepping) {
         p.x += p.diffX * dt / p.stepDelay;
         p.y += p.diffY * dt / p.stepDelay;
@@ -242,12 +275,13 @@ nnnnnnnnnnnnnnnn\
       }
       p.stepping = false;
 
+      /* plan a step */
       p.diffX = 0;
       p.diffY = 0;
 
       if(p.inputs['left']) {
         p.diffX = -p.stepDistance;
-        delete p.inputs['left']
+        delete p.inputs['left'];
       } else if(p.inputs['right']) {
         p.diffX = p.stepDistance;
       }
@@ -257,6 +291,9 @@ nnnnnnnnnnnnnnnn\
       } else if(p.inputs['down']) {
         p.diffY = p.stepDistance;
       }
+
+      // reset the entity's inputs
+      this.entity.p.inputs = {};
 
       if(p.diffY || p.diffX ) {
         p.stepping = true;
