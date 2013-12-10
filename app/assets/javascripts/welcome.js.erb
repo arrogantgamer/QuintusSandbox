@@ -56,22 +56,11 @@ window.addEventListener("load", function () {
 
   Q.Block.extend("Control", {
     init: function (p) {
+      p.target = p.colour + "Drone";
       
       this._super(p);
       this.add("controlRouter");
     }
-
-  });
-
-  Q.Control.extend("GreenControl", {
-    init: function (p) {
-      p.frame = 1;
-      p.direction = "left";
-      p.target = "GreenDrone";
-      this._super(p);
-
-    },
-
 
   });
 
@@ -91,7 +80,7 @@ window.addEventListener("load", function () {
     },
 
     control: function (data) {
-      this.p.inputs['left'] = true;
+      this.p.inputs[data] = true;
       this.trigger("step");
 
     }
@@ -161,7 +150,10 @@ window.addEventListener("load", function () {
     'n': Q.Null,
     'r': Q.RedDrone,
     'g': Q.GreenDrone,
-    'w': Q.GreenControl,
+    'w': function (p) { return new Q.Control(Q._extend({ frame: 0, direction: "up",    colour: "Green" }, p)); },
+    'a': function (p) { return new Q.Control(Q._extend({ frame: 1, direction: "left",  colour: "Green" }, p)); },
+    's': function (p) { return new Q.Control(Q._extend({ frame: 2, direction: "down",  colour: "Green" }, p)); },
+    'd': function (p) { return new Q.Control(Q._extend({ frame: 3, direction: "right", colour: "Green" }, p)); },
     'p': Q.PinkDrone
   };
 
@@ -188,11 +180,11 @@ window.addEventListener("load", function () {
     var tiles = digest_bitmap("\
 nnnnnnnnnnnnnnnn\
 nnnnnnnnnnnnnnnn\
-nnnn  w    pnnnn\
-nnnnn  r   nnnnn\
-nnnnnn   g   nnn\
-nnnnn     nnnnnn\
-nnnnnnnnnnnnnnnn\
+nnnn       pnnnn\
+nnnnn      nnnnn\
+nnwnnn   g   nnn\
+nardn     nnnnnn\
+nnsnnnnnnnnnnnnn\
 nnnnnnnnnnnnnnnn\
 ");
 
@@ -230,7 +222,10 @@ nnnnnnnnnnnnnnnn\
     },
 
     collision: function (col) {
+      console.log("controlRouter->collision");
       var p = this.entity.p;
+      console.log(p.direction);
+      console.log(p.target);
 
       if (col.obj.family === "Drone") {
         Q(p.target).trigger("control", p.direction);
