@@ -81,7 +81,6 @@ window.addEventListener("load", function () {
 
         /* The drone receives a signal to move */
         control: function (data) {
-            console.log("EVENT  Drone->control");
             this.p.inputs[data] = true;
         }
     });
@@ -130,7 +129,6 @@ window.addEventListener("load", function () {
         /* the red drone can translate itself through
          * nulls. Fortunately it can be contained. */
         collide: function (collision) {
-            console.log("EVENT  RedDrone->collide");
             var obj = collision.obj;
 
             if (obj && obj.className === "Null") {
@@ -191,9 +189,9 @@ nnnnnnnnnnnnnnnn\
 nnnnnnnnnnnnnnnn\
 nnnn       pnnnn\
 nnnnn      nnnnn\
-nnannn   g   nnn\
-nnrnn     nnnnnn\
-nnnnnnnnnnnnnnnn\
+nnwnnn   g   nnn\
+nardn     nnnnnn\
+nnsnnnnnnnnnnnnn\
 nnnnnnnnnnnnnnnn\
 ");
 
@@ -210,7 +208,6 @@ nnnnnnnnnnnnnnnn\
           /* We value internal coherency. */
           stage.add("controlRouter");
           Q.el.addEventListener("keydown", function (e) {
-              console.log("keydown");
               /* route keydowns to the controlRouter component */
               stage.p.direction = e.key.toLowerCase();
 
@@ -255,7 +252,6 @@ nnnnnnnnnnnnnnnn\
         },
 
         collision: function (col) {
-            console.log("EVENT  controlRouter->collision");
             var p = this.entity.p;
             var scope = (p.index !== undefined)? p.index : Q.activeStage;
 
