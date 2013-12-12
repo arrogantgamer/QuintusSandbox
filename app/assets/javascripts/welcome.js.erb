@@ -81,8 +81,8 @@ window.addEventListener("load", function () {
 
         /* The drone receives a signal to move */
         control: function (data) {
+            console.log("EVENT  Drone->control");
             this.p.inputs[data] = true;
-            this.trigger("step");
         }
     });
 
@@ -130,6 +130,7 @@ window.addEventListener("load", function () {
         /* the red drone can translate itself through
          * nulls. Fortunately it can be contained. */
         collide: function (collision) {
+            console.log("EVENT  RedDrone->collide");
             var obj = collision.obj;
 
             if (obj && obj.className === "Null") {
@@ -190,7 +191,7 @@ nnnnnnnnnnnnnnnn\
 nnnnnnnnnnnnnnnn\
 nnnn       pnnnn\
 nnnnn      nnnnn\
-nnnnnn   g   nnn\
+nnannn   g   nnn\
 nnrnn     nnnnnn\
 nnnnnnnnnnnnnnnn\
 nnnnnnnnnnnnnnnn\
@@ -218,7 +219,7 @@ nnnnnnnnnnnnnnnn\
                   /* usually there will be only 1 red drone, but this
                    * will also handle the case when there are many. */
                   Q(stage.p.target, stage.p.index).each(function () {
-                      stage.trigger("hit", { obj: this });
+                      stage.trigger("signal", { obj: this });
                   });
               }
           });
@@ -250,9 +251,11 @@ nnnnnnnnnnnnnnnn\
         added: function () {
 
             this.entity.on("hit", this, "collision");
+            this.entity.on("signal", this, "collision");
         },
 
         collision: function (col) {
+            console.log("EVENT  controlRouter->collision");
             var p = this.entity.p;
             var scope = (p.index !== undefined)? p.index : Q.activeStage;
 
@@ -304,7 +307,6 @@ nnnnnnnnnnnnnnnn\
 
             if(p.inputs['left']) {
                 p.diffX = -p.stepDistance;
-                delete p.inputs['left'];
             } else if(p.inputs['right']) {
                 p.diffX = p.stepDistance;
             }
