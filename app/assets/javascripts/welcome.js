@@ -57,11 +57,11 @@ window.addEventListener("load", function () {
     ]
 
     var Q = Quintus({ imagePath: "/assets/", development: true})
-    .include("Sprites, Scenes, 2D, Input, UI")
+    .include("Sprites, Scenes, 2D, Input, UI, Touch, Anim")
     .setup({
         width: CANVAS_WIDTH,
         height: CANVAS_HEIGHT
-    }).controls();
+    }).controls().touch();
 
     Q.Sprite.extend("Ticker", {
         init: function (period, p) {
@@ -205,20 +205,60 @@ window.addEventListener("load", function () {
                 w: D.towns.w,
                 h: D.towns.h
             });
+
+            this.on("travel", this.travel);
+        },
+
+        travel: function (destination) {
+            var stage = this.stage;
+            var old_towns = this.getCurrentTowns();
+            this.p.current_town = destination;
+
+            var new_towns = this.getCurrentTowns();
+
+            /* TODO for now these two lists are always the same
+            *  but later they may vary in length */
+            for (i = 0; i < old_towns.length; i++) {
+                var old_town = old_towns[i];
+                var new_town = new_towns[i];
+
+                /* animate the town to slide away */
+                old_town.animate({ x: -old_town.p.x, y: old_town.p.y }, { callback: function () {
+                    stage.remove(this);
+                }});
+            }
+
+            /* slide the new towns on stage */
+        },
+
+        getCurrentTowns: function () {
+            var town = this.p.current_town;
+            var neighbours = this.getNeighbours();
+            neighbours.unshift(town); // set current_town to the front
+
+            return neighbours;
+        },
+
+        focus: function () {
+            console.log("wat");
         },
 
         insertInto: function (stage) {
             stage.insert(this);
 
-            var towns = this.p.list;
-            var node = towns.getHead();
+            /* give each town UI element some position */
+            var town = this.p.current_town;
+            var neighbours = this.getNeighbours();
+            neighbours.unshift(town); // set current_town to the front
 
-            /* insert all the towns */
-            for (i = 0; i < towns.length(); i++) {
-                var town = node.getData();
+            for (i = 0; i < neighbours.length; i++) {
+                town = neighbours[i];
+                var offset = (i > 0)? 100 : 20;
+
+                town.p.x = -D.towns.w / 2 + D.town.w / 2 - offset;
+                town.p.y = (i * D.town.m) + D.town.h + (i * D.town.h) - D.towns.h / 2;
+
                 town.insertInto(stage, this);
-
-                node = node.getNext();
             }
         },
 
@@ -252,10 +292,11 @@ window.addEventListener("load", function () {
         }
     });
 
-    Q.UI.Container.extend("Town", {
+    Q.UI.Button.extend("Town", {
         init: function (population, p) {
 
-            this._super(p, {
+            this._super(Q._extend(p || {}, {
+                label: "",
                 id: Q.state.nextTown(),
                 name: Q.state.townName(),
                 population: population,
@@ -266,7 +307,7 @@ window.addEventListener("load", function () {
                 shadowColor: "rgba(0,0,0,0.5)",
                 w: D.town.w,
                 h: D.town.h,
-            });
+            }), this.makePrimary);
 
             this.p.name_label = new Q.UI.Text({
                 label: this.p.name,
@@ -276,9 +317,18 @@ window.addEventListener("load", function () {
             var w = this.p.name_label.p.w;
 
             this.p.name_label.p.x = (D.town.w / 2) - w/2 - 30;
+            this.add("tween");
+        },
+
+        makePrimary: function () {
+            console.log("travelling");
+
+            this.container.trigger("travel", this);
         },
 
         insertInto: function (stage, container) {
+            this.p.container = container;
+
             stage.insert(this, container);
             stage.insert(this.p.name_label, this);
         },
@@ -316,19 +366,6 @@ window.addEventListener("load", function () {
         world.add(new Q.Town(100));
         world.add(new Q.Town(120));
         world.add(new Q.Town(140));
-
-        /* give each town UI element some position */
-        var town = world.p.current_town;
-        var neighbours = world.getNeighbours();
-        neighbours.unshift(town);
-
-        for (i = 0; i < neighbours.length; i++) {
-            town = neighbours[i];
-            var offset = (i > 0)? 100 : 20;
-
-            town.p.x = -D.towns.w / 2 + D.town.w / 2 - offset;
-            town.p.y = (i * D.town.m) + D.town.h + (i * D.town.h) - D.towns.h / 2;
-        }
 
         world.insertInto(stage);
     });
