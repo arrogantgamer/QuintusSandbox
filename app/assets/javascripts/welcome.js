@@ -210,25 +210,21 @@ window.addEventListener("load", function () {
         },
 
         travel: function (destination) {
-            var stage = this.stage;
-            var old_towns = this.getCurrentTowns();
+            var self = this;
+            var towns = this.getCurrentTowns();
             this.p.current_town = destination;
 
-            var new_towns = this.getCurrentTowns();
-
-            /* TODO for now these two lists are always the same
-            *  but later they may vary in length */
-            for (i = 0; i < old_towns.length; i++) {
-                var old_town = old_towns[i];
-                var new_town = new_towns[i];
+            for (i = 0; i < towns.length; i++) {
+                var town = towns[i];
 
                 /* animate the town to slide away */
-                old_town.animate({ x: -old_town.p.x, y: old_town.p.y }, { callback: function () {
-                    stage.remove(this);
-                }});
+                town.animate({ x: -(D.towns.w), y: town.p.y }, {
+                    callback: function () {
+                        /* use a debounced function call to act on all animation being complete */
+                        // self.debouced_insertInto();
+                    }
+                });
             }
-
-            /* slide the new towns on stage */
         },
 
         getCurrentTowns: function () {
@@ -239,13 +235,7 @@ window.addEventListener("load", function () {
             return neighbours;
         },
 
-        focus: function () {
-            console.log("wat");
-        },
-
         insertInto: function (stage) {
-            stage.insert(this);
-
             /* give each town UI element some position */
             var town = this.p.current_town;
             var neighbours = this.getNeighbours();
@@ -361,6 +351,9 @@ window.addEventListener("load", function () {
 
         /* fill the world with a graph of named towns */
         var world = new Q.World();
+        stage.insert(world);
+
+        /* these are place holders */
 
         /* set up the initial town and adjacencies */
         world.add(new Q.Town(100));
