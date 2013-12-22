@@ -23,6 +23,38 @@ window.addEventListener("load", function () {
         m: 10
     };
 
+    var TOWN_NAMES = [
+        "Alnwic",
+        "Tylwaerdreath",
+        "Lhanbryde",
+        "Arkaley",
+        "Violl's Garden",
+        "Leurbost",
+        "Kuuma",
+        "Loukussa",
+        "Skargness",
+        "Jedburgh",
+        "Auchterarder",
+        "Black Hallows",
+        "Warthford",
+        "Helmfirth",
+        "Lanercost",
+        "Frostford",
+        "Tenby",
+        "Leefside",
+        "Larnwick",
+        "Pran",
+        "Addersfield",
+        "Quan Ma",
+        "Coningsby",
+        "Hillford",
+        "Garen's Well",
+        "Kuuma",
+        "Llaneybyder",
+        "Bredon",
+        "Yarrin",
+        "Dungannon",
+    ]
 
     var Q = Quintus({ imagePath: "/assets/", development: true})
     .include("Sprites, Scenes, 2D, Input, UI")
@@ -32,14 +64,15 @@ window.addEventListener("load", function () {
     }).controls();
 
     Q.Sprite.extend("Ticker", {
-        init: function (p) {
+        init: function (period, p) {
             this._super(p, {
-                clock: 0
+                clock: 0,
+                period: period
             });
         },
 
         step: function (dt) {
-            if ((this.p.clock += dt) < 1) return;
+            if ((this.p.clock += dt) < this.p.period) return;
 
             var population = Q.state.get("population");
             var time       = Q.state.get("time");
@@ -199,11 +232,11 @@ window.addEventListener("load", function () {
     });
 
     Q.UI.Container.extend("Town", {
-        init: function (name, population, container, p) {
+        init: function (population, container, p) {
 
             this._super(p, {
                 id: Q.state.nextTown(),
-                name: name,
+                name: Q.state.townName(),
                 population: population,
                 visited: false,
                 fill: "white",
@@ -218,9 +251,11 @@ window.addEventListener("load", function () {
             this.p.name_label = new Q.UI.Text({
                 label: this.p.name,
                 color: "black",
-                x: -(D.town.w / 3),
-                y:0
             });
+
+            var w = this.p.name_label.p.w;
+
+            this.p.name_label.p.x = (D.town.w / 2) - w/2 - 30;
         },
 
         insertInto: function (stage) {
@@ -234,6 +269,15 @@ window.addEventListener("load", function () {
         }
     });
 
+    Q.state.townName = function () {
+        var index = parseInt((Math.random() * 100) % TOWN_NAMES.length, 10);
+
+        var name = TOWN_NAMES[index];
+        TOWN_NAMES.slice(index, 1);
+
+        return name;
+    },
+
     Q.state.nextTown = function () {
         var id = this.p.next_town;
         this.set("next_town", this.p.next_town + 1);
@@ -246,6 +290,7 @@ window.addEventListener("load", function () {
             next_town: 1
         });
 
+        /* the main screen */
         var towns_container = stage.insert(new Q.UI.Container({
             fill: "gray",
             x: D.towns.w / 2,
@@ -257,18 +302,22 @@ window.addEventListener("load", function () {
             h: D.towns.h
         }));
 
+        /* fill the world with a graph of named towns */
         stage.world = new Q.World();
-        stage.world.add(new Q.Town("Town 1", 100, towns_container));
-        stage.world.add(new Q.Town("Town 2", 120, towns_container));
-        stage.world.add(new Q.Town("Town 3", 140, towns_container));
+        stage.world.add(new Q.Town(100, towns_container));
+        stage.world.add(new Q.Town(120, towns_container));
+        stage.world.add(new Q.Town(140, towns_container));
 
+        /* set up the initial town and adjacencies */
         var town = stage.world.p.current_town;
         var neighbours = stage.world.getNeighbours();
         neighbours.unshift(town);
 
         for (i = 0; i < neighbours.length; i++) {
             town = neighbours[i];
-            town.p.x = -D.towns.w / 2 + D.town.w / 2 - 20;
+            var offset = (i > 0)? 100 : 20;
+
+            town.p.x = -D.towns.w / 2 + D.town.w / 2 - offset;
             town.p.y = (i * D.town.m) + D.town.h + (i * D.town.h) - D.towns.h / 2;
 
             town.insertInto(stage);
@@ -281,14 +330,15 @@ window.addEventListener("load", function () {
             time: 0
         });
 
-        stage.insert(new Q.Ticker());
+        /* an actor that counts seconds */
+        stage.insert(new Q.Ticker(1));
 
         var dimensions = {
             w: CANVAS_WIDTH - 20,
             h: CANVAS_HEIGHT / 10
         };
 
-        var statsContainer = stage.insert(new Q.UI.Container({
+        var stats_container = stage.insert(new Q.UI.Container({
             fill: "gray",
             x: dimensions.w / 2,
             y: dimensions.h / 2,
@@ -304,15 +354,16 @@ window.addEventListener("load", function () {
             color: "white",
             x: -(dimensions.w / 3),
             y: 0
-        }),statsContainer);
+        }), stats_container);
 
         var population = stage.insert(new Q.UI.Text({
             label: "Population: 1/100",
             color: "white",
             x: (dimensions.w / 3),
             y: 0
-        }),statsContainer);
+        }), stats_container);
 
+        /* update the UI on gamestate changes */
         stage.update_time = function (val) {
             time.p.label = "Day: " + val
         };
