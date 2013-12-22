@@ -1,5 +1,6 @@
 
 window.addEventListener("load", function () {
+  if ($("#signal-root").length !== 1) return;
 
     var digest_bitmap = function (bitmap) {
 

@@ -1,331 +1,334 @@
 
 window.addEventListener("load", function () {
+    var CANVAS_WIDTH = 1024;
+    var CANVAS_HEIGHT = 768;
 
-    var digest_bitmap = function (bitmap) {
+    /* global dimensions object */
+    var D = {};
 
-        var sprites = [];
-
-        for(var i = 0; i < bitmap.length; i++) {
-            var symbol = bitmap[i],
-            klass = Q.legend[symbol],
-            x = 90 * (i % 16),
-            y = 90 * parseInt(i / 16, 10);
-
-            if (symbol !== ' ') {
-                sprites.push(new klass({ x: x + 45, y: y + 45 }));
-            }
-        }
-
-        return sprites;
+    D.canvas = {
+        w: CANVAS_WIDTH,
+        h: CANVAS_HEIGHT
     };
+
+    D.towns = {
+        w: D.canvas.w - 20,
+        h: (D.canvas.h / 10) * 8,
+        m: 20
+    };
+
+    D.town = {
+        w: (D.towns.w / 10) * 5,
+        h: (D.towns.h) / 10,
+        m: 10
+    };
+
 
     var Q = Quintus({ imagePath: "/assets/", development: true})
-    .include("Sprites, Scenes, 2D, Input")
+    .include("Sprites, Scenes, 2D, Input, UI")
     .setup({
-        height: 720,
-        width: 1440
+        width: CANVAS_WIDTH,
+        height: CANVAS_HEIGHT
     }).controls();
 
-    Q.gravityY = 0;
-    Q.gravityX = 0;
-
-    var SPRITE_NONE  = 0;
-    var SPRITE_DRONE = 1;
-    var SPRITE_BLOCK = 2;
-
-    Q.Sprite.extend("Blank", {
-        init: function(p) {
-            p.sheet = "signal";
-            p.frame = 27;
-            p.type = SPRITE_NONE;
-            this._super(p);
-        }
-    });
-
-    Q.Sprite.extend("Block", {
-        init: function(p) {
-            p.sheet = "signal";
-            p.type = SPRITE_BLOCK;
-            this._super(p);
-
-            this.on("hit", this.collide);
+    Q.Sprite.extend("Ticker", {
+        init: function (p) {
+            this._super(p, {
+                clock: 0
+            });
         },
 
-        collide: function () { }
-    });
+        step: function (dt) {
+            if ((this.p.clock += dt) < 1) return;
 
-    Q.Block.extend("Control", {
-        init: function (p) {
-            p.target = p.colour + "Drone";
+            var population = Q.state.get("population");
+            var time       = Q.state.get("time");
+            Q.state.set("population", population + 1);
+            Q.state.set("time", time + 1);
 
-            this._super(p);
-            this.add("controlRouter");
+            this.p.clock = 0;
         }
 
     });
 
-    Q.Sprite.extend("Drone", {
-        init: function(p) {
-            this.family = "Drone";
-            p.sheet = "signal";
-            p.stepDistance = 90;
-            p.type = SPRITE_DRONE;
-            p.collisionMask = SPRITE_DRONE | SPRITE_BLOCK;
-            this._super(p);
-
-            this.on("control", this.control);
-
-            this.add("2d");
-            this.add("droneControls");
+    Q.Sprite.extend("Node", {
+        init: function (data, next, prev, p) {
+            this._super(p, {
+                links: [prev, next],
+                data: data
+            });
         },
 
-        /* The drone receives a signal to move */
-        control: function (data) {
-            this.p.inputs[data] = true;
-        }
-    });
-
-    /* The grey coloured drones that make
-     * up the walls */
-    Q.Drone.extend("Null", {
-        init: function (p) {
-            p.frame = 20;
-            this._super(p);
-
-            /* Nulls don't normally move. */
-            /* They could though, given this implementation... */
-            this.del("2d");
-            this.off("control", this.control);
-        }
-    });
-
-    /* Some normal coloured drones */
-    Q.Drone.extend("PinkDrone", {
-        init: function (p) {
-            p.frame = 23;
-            this._super(p);
-        }
-    });
-
-    /* For some reason, everyone seems to love green drone */
-    Q.Drone.extend("GreenDrone", {
-        init: function (p) {
-            p.frame = 22;
-            this._super(p);
-        }
-    });
-
-    /* The red drone is a problem, we must keep
-     * it isolated */
-    Q.Drone.extend("RedDrone", {
-        init: function (p) {
-            p.frame = 21;
-            this._super(p);
-
-            /* TODO should probably change this? */
-            this.on("hit", this.collide);
+        /* TODO should return a copy */
+        getData: function () {
+            return this.p.data
         },
 
-        /* the red drone can translate itself through
-         * nulls. Fortunately it can be contained. */
-        collide: function (collision) {
-            var obj = collision.obj;
+        /* TODO should add a copy */
+        setData: function (object) {
+            this.p.data = object;
+        },
 
-            if (obj && obj.className === "Null") {
-                // swap them
-                this.swapping = true;
-                this.target = obj;
-                this.stage.remove(this);
-                this.stage.remove(obj);
+        getLink: function (index) {
+            return this.p.links[index];
+        },
+
+        getNext: function () {
+            return this.p.links[1];
+        },
+
+        getPrev: function () {
+            return this.p.links[0];
+        },
+
+        addLink: function (node) {
+            this.p.links.push(node);
+        },
+
+        setNext: function (node) {
+            this.p.links[1] = node;
+        },
+
+        setPrev: function (node) {
+            this.p.links[0] = node;
+        }
+    });
+
+    Q.Sprite.extend("List", {
+        init: function (p) {
+            this._super(p, {
+                nodes: [],
+                head: null,
+                tail: null,
+                length: 0
+            });
+        },
+
+        length: function () {
+            return this.p.length;
+        },
+
+        isEmpty: function () {
+            return this.p.head === null;
+        },
+
+        getHead: function () {
+            return this.p.head;
+        },
+
+        getTail: function () {
+            return this.p.tail;
+        },
+
+        find: function (object) {
+            return this.p.nodes[object.p.id];
+        },
+
+        /* pre: object.p.id is unique */
+        /* appends to the list */
+        push: function (object) {
+            var node = new Q.Node(object, null, null);
+            this.p.nodes[object.p.id] = node;
+
+            if (this.isEmpty()) {
+                node.setNext(node);
+                node.setPrev(node);
+                this.p.head = node;
+                this.p.tail = this.p.head;
+            } else {
+                this.p.tail.setNext(node);
+                this.p.head.setPrev(node);
+                node.setPrev(this.p.tail);
+                node.setNext(this.p.head);
+                this.p.tail = node;
             }
+
+            this.p.length += 1;
+            return this;
         },
 
-        swap: function (stage, obj) {
-            var obj_coords = { x: obj.p.x, y: obj.p.y };
-            stage.insert(new Q.RedDrone(obj_coords));
-            stage.insert(new Q.Null({ x: this.p.x, y: this.p.y }));
-            this.destroy();
-            obj.destroy();
-        },
+        pop: function () {
+            if (this.isEmpty()) throw "Popped from an empty list";
 
+            var node = this.p.tail;
+            this.p.tail = this.p.tail.getPrev();
+            this.p.tail.setNext(this.p.head);
+
+            this.p.length -= 1;
+            return node.getData();
+        }
     });
 
-    Q.legend = {
-        '.': Q.Blank,
-        'n': Q.Null,
-        'r': Q.RedDrone,
-        'g': Q.GreenDrone,
-        'p': Q.PinkDrone,
-        'w': function (p) { return new Q.Control(Q._extend({ frame: 0, direction: "up",    colour: "Green" }, p)); },
-        'a': function (p) { return new Q.Control(Q._extend({ frame: 1, direction: "left",  colour: "Green" }, p)); },
-        's': function (p) { return new Q.Control(Q._extend({ frame: 2, direction: "down",  colour: "Green" }, p)); },
-        'd': function (p) { return new Q.Control(Q._extend({ frame: 3, direction: "right", colour: "Green" }, p)); },
-        '8': function (p) { return new Q.Control(Q._extend({ frame: 0, direction: "up",    colour: "Green" }, p)); },
-        '4': function (p) { return new Q.Control(Q._extend({ frame: 1, direction: "left",  colour: "Green" }, p)); },
-        '2': function (p) { return new Q.Control(Q._extend({ frame: 2, direction: "down",  colour: "Green" }, p)); },
-        '6': function (p) { return new Q.Control(Q._extend({ frame: 3, direction: "right", colour: "Green" }, p)); }
+    Q.Sprite.extend("World", {
+        init: function (p) {
+            this._super(p, {
+                list: new Q.List(),
+            });
+
+            $("#towns").on("click", "a", this.visit);
+        },
+
+        getNeighbours: function () {
+            var node = this.p.list.find(this.p.current_town);
+
+            return [node.getNext().getData(), node.getPrev().getData()];
+        },
+
+        getHead: function () {
+            return this.p.list.getHead();
+        },
+
+        length: function () {
+            return this.p.list.length();
+        },
+
+        add: function (town) {
+            if (this.p.list.isEmpty()) {
+                this.p.current_town = town;
+            }
+
+            this.p.list.push(town);
+        },
+
+        visit: function (e) {
+            console.log("visited");
+            e.preventDefault();
+
+            this.p.visited = true;
+        }
+    });
+
+    Q.UI.Container.extend("Town", {
+        init: function (name, population, container, p) {
+
+            this._super(p, {
+                id: Q.state.nextTown(),
+                name: name,
+                population: population,
+                visited: false,
+                fill: "white",
+                border: 1,
+                shadow: 3,
+                shadowColor: "rgba(0,0,0,0.5)",
+                w: D.town.w,
+                h: D.town.h,
+                container: container
+            });
+
+            this.p.name_label = new Q.UI.Text({
+                label: this.p.name,
+                color: "black",
+                x: -(D.town.w / 3),
+                y:0
+            });
+        },
+
+        insertInto: function (stage) {
+            stage.insert(this, this.p.container);
+            stage.insert(this.p.name_label, this);
+
+        },
+
+        isVisited: function () {
+            return this.p.visited;
+        }
+    });
+
+    Q.state.nextTown = function () {
+        var id = this.p.next_town;
+        this.set("next_town", this.p.next_town + 1);
+
+        return id;
     };
 
-    Q.scene("background", function (stage) {
-        var tiles = digest_bitmap("\
-................\
-................\
-................\
-................\
-................\
-................\
-................\
-................\
-");
+    Q.scene("world", function (stage) {
+        Q.state.reset({
+            next_town: 1
+        });
 
-        for(var i = 0; i < tiles.length; i++) {
-          stage.insert(tiles[i]);
+        var towns_container = stage.insert(new Q.UI.Container({
+            fill: "gray",
+            x: D.towns.w / 2,
+            y: D.towns.m + D.towns.h / 10 + D.towns.h / 2,
+            border: 1,
+            shadow: 3,
+            shadowColor: "rgba(0,0,0,0.5)",
+            w: D.towns.w,
+            h: D.towns.h
+        }));
+
+        stage.world = new Q.World();
+        stage.world.add(new Q.Town("Town 1", 100, towns_container));
+        stage.world.add(new Q.Town("Town 2", 120, towns_container));
+        stage.world.add(new Q.Town("Town 3", 140, towns_container));
+
+        var town = stage.world.p.current_town;
+        var neighbours = stage.world.getNeighbours();
+        neighbours.unshift(town);
+
+        for (i = 0; i < neighbours.length; i++) {
+            town = neighbours[i];
+            town.p.x = -D.towns.w / 2 + D.town.w / 2 - 20;
+            town.p.y = (i * D.town.m) + D.town.h + (i * D.town.h) - D.towns.h / 2;
+
+            town.insertInto(stage);
         }
     });
 
-    Q.scene("level1", function (stage) {
-        var tiles = digest_bitmap("\
-nnnnnnnnnnnnnnnn\
-nnnnnnnnnnnnnnnn\
-nnnn       pnnnn\
-nnnnn      nnnnn\
-nnwnnn   g   nnn\
-nardn     nnnnnn\
-nnsnnnnnnnnnnnnn\
-nnnnnnnnnnnnnnnn\
-");
+    Q.scene("stats", function(stage) {
+        Q.state.reset({
+            population: 0,
+            time: 0
+        });
 
-          for(var i = 0; i < tiles.length; i++) {
-              stage.insert(tiles[i]);
-          }
+        stage.insert(new Q.Ticker());
 
-          /* a stage should know its index */
-          stage.p = {};
-          stage.p.index = Q.stages.indexOf(stage);
-          stage.p.target = "RedDrone";
+        var dimensions = {
+            w: CANVAS_WIDTH - 20,
+            h: CANVAS_HEIGHT / 10
+        };
 
-          /* The stage is the control router for red drones. */
-          /* We value internal coherency. */
-          stage.add("controlRouter");
-          Q.el.addEventListener("keydown", function (e) {
-              /* route keydowns to the controlRouter component */
-              stage.p.direction = e.key.toLowerCase();
+        var statsContainer = stage.insert(new Q.UI.Container({
+            fill: "gray",
+            x: dimensions.w / 2,
+            y: dimensions.h / 2,
+            border: 1,
+            shadow: 3,
+            shadowColor: "rgba(0,0,0,0.5)",
+            w: dimensions.w,
+            h: dimensions.h
+        }));
 
-              if (["left", "right", "up", "down"].indexOf(stage.p.direction) > -1) {
+        var time = stage.insert(new Q.UI.Text({
+            label: "Day: 0",
+            color: "white",
+            x: -(dimensions.w / 3),
+            y: 0
+        }),statsContainer);
 
-                  /* usually there will be only 1 red drone, but this
-                   * will also handle the case when there are many. */
-                  Q(stage.p.target, stage.p.index).each(function () {
-                      stage.trigger("signal", { obj: this });
-                  });
-              }
-          });
+        var population = stage.insert(new Q.UI.Text({
+            label: "Population: 1/100",
+            color: "white",
+            x: (dimensions.w / 3),
+            y: 0
+        }),statsContainer);
 
-          /* TODO not sure what this does? */
-          stage.on("removed", function (obj) {
-              if (obj.swapping === true) {
-                  obj.swap(stage, obj.target);
-              }
-          });
+        stage.update_time = function (val) {
+            time.p.label = "Day: " + val
+        };
+
+        stage.update_population = function (val) {
+            population.p.label = "Population: " + val + "/100"
+        };
+
+        Q.state.on("change.population", stage.update_population);
+        Q.state.on("change.time", stage.update_time);
     });
 
-    Q.load([ "signal_tiles.png"], function() {
-        Q.sheet("signal", "signal_tiles.png", { tilew: 90, tileh: 90, sx:0, sy:0 });
-
-        Q.stageScene("background",0);
-        Q.stageScene("level1", 1);
+    //load assets
+    Q.load(["signal_tiles.png"], function() {
+        Q.stageScene("world", 0);
+        Q.stageScene("stats", 1);
     });
 
-    /* Control Router */
-    /* The control router receives and responds to keyboard events,
-     * just like 'stepControls' in the input module. However, rather
-     * than acting on the inputs, the entity in this case responds
-     * by broadcasting the inputs to all relevant actors. A selector
-     * will be defined on the entity to determine which actors are
-     * to be notified. */
-    Q.component("controlRouter", {
-
-        added: function () {
-
-            this.entity.on("hit", this, "collision");
-            this.entity.on("signal", this, "collision");
-        },
-
-        collision: function (col) {
-            var p = this.entity.p;
-            var scope = (p.index !== undefined)? p.index : Q.activeStage;
-
-            if (col.obj.family === "Drone") {
-                Q(p.target, scope).trigger("control", p.direction);
-            }
-        }
-    });
-
-    /* Drone Controls */
-    /* This component is pretty much a copy of step controls except
-     * that the source of inputs is an object on the entity, rather
-     * than Q.inputs. An entity that has added drone controls will
-     * respond to keyboard events announced by a control router. */
-    Q.component("droneControls", {
-
-        added: function() {
-            var p = this.entity.p;
-            p.inputs = {};
-
-            if(!p.stepDistance) { p.stepDistance = 32; }
-            if(!p.stepDelay) { p.stepDelay = 0.2; }
-
-            p.stepWait = 0;
-            this.entity.on("step",this,"step");
-        },
-
-        step: function(dt) {
-            var p = this.entity.p,
-            moved = false;
-            p.stepWait -= dt;
-
-            /* mid-step */
-            if(p.stepping) {
-                p.x += p.diffX * dt / p.stepDelay;
-                p.y += p.diffY * dt / p.stepDelay;
-            }
-
-            if(p.stepWait > 0) { return; }
-            if(p.stepping) {
-                p.x = p.destX;
-                p.y = p.destY;
-            }
-            p.stepping = false;
-
-            /* plan a step */
-            p.diffX = 0;
-            p.diffY = 0;
-
-            if(p.inputs['left']) {
-                p.diffX = -p.stepDistance;
-            } else if(p.inputs['right']) {
-                p.diffX = p.stepDistance;
-            }
-
-            if(p.inputs['up']) {
-                p.diffY = -p.stepDistance;
-            } else if(p.inputs['down']) {
-                p.diffY = p.stepDistance;
-            }
-
-            // reset the entity's inputs
-            this.entity.p.inputs = {};
-
-            if(p.diffY || p.diffX ) {
-                p.stepping = true;
-                p.origX = p.x;
-                p.origY = p.y;
-                p.destX = p.x + p.diffX;
-                p.destY = p.y + p.diffY;
-                p.stepWait = p.stepDelay;
-            }
-
-        }
-
-    });
 });

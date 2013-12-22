@@ -16,6 +16,8 @@
 //= require quintus_input
 //= require quintus_2d
 //= require quintus_scenes
+//= require quintus_touch
+//= require quintus_ui
 //= require jquery_ujs
 //= require turbolinks
 //= require_tree .
