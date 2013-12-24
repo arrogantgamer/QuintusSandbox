@@ -351,26 +351,46 @@ window.addEventListener("load", function () {
         tic: function () {
 
             this.growCult();
+            this.contributeSoulfire();
         },
 
         getCultistPercent: function () {
             return parseInt((this.p.cultists / this.p.population)*100, 10);
         },
 
+        /* this is really what towns are for */
+        contributeSoulfire: function () {
+
+        },
+
         growCult: function () {
+            var p_0 = this.p.cultists;
+            var current_town = false;
+
+            /* if you are present, cult population is the max of itself or you */
             if (this.p.name === Q.state.get("current_town")) {
-                this.p.cultists = (this.p.cultists > 0)? this.p.cultists : 1;
+                current_town = true;
+                p_0 = Math.max(this.p.cultists, 1);
             }
 
-            this.p.cultists = this.grow(this.p.cultists);
+            /* once a cell has gained momentum, it can grow without you */
+            if (current_town || this.getCultistPercent() >= 10) {
+                this.p.cultists = this.grow(p_0);
+            } else {
+                this.p.cultists = this.steady(p_0);
+            }
 
             this.p.demographics.p.label = "Cultists: " + parseInt(this.p.cultists) + " (" + this.getCultistPercent() + "%)";
 
-            if (this.getCultistPercent() === 5) {
+            if (this.getCultistPercent() === 10) {
                 var badge = new Q.Badge();
                 this.p.badges.push(badge);
                 this.p.button.addBadge(badge);
             }
+        },
+
+        steady: function (cultists) {
+            return cultists;
         },
 
         /* as cultists percent goes to 50% g should go to 0 */
