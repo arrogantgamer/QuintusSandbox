@@ -19,7 +19,7 @@ window.addEventListener("load", function () {
 
     D.town = {
         w: (D.towns.w / 10) * 5,
-        h: (D.towns.h) / 10,
+        h: (D.towns.h) / 6,
         m: 10
     };
 
@@ -30,7 +30,6 @@ window.addEventListener("load", function () {
         "Arkaley",
         "Violl's Garden",
         "Leurbost",
-        "Kuuma",
         "Loukussa",
         "Skargness",
         "Jedburgh",
@@ -63,6 +62,30 @@ window.addEventListener("load", function () {
         height: CANVAS_HEIGHT
     }).controls().touch();
 
+    Q.debounce = function(func, wait, immediate) {
+        var timeout, args, context, timestamp, result;
+        return function() {
+            context = this;
+            args = arguments;
+            timestamp = new Date();
+            var later = function() {
+                var last = (new Date()) - timestamp;
+                if (last < wait) {
+                    timeout = setTimeout(later, wait - last);
+                } else {
+                    timeout = null;
+                    if (!immediate) result = func.apply(context, args);
+                }
+            };
+            var callNow = immediate && !timeout;
+            if (!timeout) {
+                timeout = setTimeout(later, wait);
+            }
+            if (callNow) result = func.apply(context, args);
+            return result;
+        };
+    };
+
     Q.Sprite.extend("Ticker", {
         init: function (period, p) {
             this._super(p, {
@@ -74,12 +97,13 @@ window.addEventListener("load", function () {
         step: function (dt) {
             if ((this.p.clock += dt) < this.p.period) return;
 
-            var population = Q.state.get("population");
+            var soulfire = Q.state.get("soulfire");
             var time       = Q.state.get("time");
-            Q.state.set("population", population + 1);
+            Q.state.set("soulfire", soulfire + 1);
             Q.state.set("time", time + 1);
 
             this.p.clock = 0;
+            Q("World", 0).trigger("tic");
         }
 
     });
@@ -207,24 +231,40 @@ window.addEventListener("load", function () {
             });
 
             this.on("travel", this.travel);
+            this.on("tic", this.tic);
+            this.insertInto = Q.debounce(this.insertInto);
         },
 
-        travel: function (destination) {
+        tic: function () {
+            var node = this.p.list.getHead();
+
+            for (var i = 0; i < this.p.list.length(); i++) {
+                var town = node.getData();
+                town.trigger("tic");
+                node = node.getNext();
+            }
+        },
+
+        travel: function (button) {
+            var destination = button.p.town;
             var self = this;
             var towns = this.getCurrentTowns();
             this.p.current_town = destination;
+            Q.state.set("current_town", this.p.current_town.p.name);
 
-            for (i = 0; i < towns.length; i++) {
+            for (var i = 0; i < towns.length; i++) {
                 var town = towns[i];
 
                 /* animate the town to slide away */
-                town.animate({ x: -(D.towns.w), y: town.p.y }, {
+                town.p.button.animate({ x: -(D.towns.w), y: town.p.button.p.y }, 0.5, {
                     callback: function () {
                         /* use a debounced function call to act on all animation being complete */
-                        // self.debouced_insertInto();
+                        town_button.p.hidden = true;
+                        self.insertInto(self.stage);
                     }
                 });
             }
+
         },
 
         getCurrentTowns: function () {
@@ -236,19 +276,23 @@ window.addEventListener("load", function () {
         },
 
         insertInto: function (stage) {
-            /* give each town UI element some position */
-            var town = this.p.current_town;
-            var neighbours = this.getNeighbours();
-            neighbours.unshift(town); // set current_town to the front
+            /* find the current towns, and then add labels to
+            * enough buttons, and then show those buttons */
 
-            for (i = 0; i < neighbours.length; i++) {
-                town = neighbours[i];
+            var towns = this.getCurrentTowns();
+
+            for (var i = 0; i < towns.length; i++) {
+                town = towns[i];
+                town_button = this.children[i];
+                town.p.button = town_button;
+
                 var offset = (i > 0)? 100 : 20;
+                var x = -D.towns.w / 2 + D.town.w / 2 - offset;
+                var y = (i * D.town.m) + D.town.h + (i * D.town.h) - D.towns.h / 2;
 
-                town.p.x = -D.towns.w / 2 + D.town.w / 2 - offset;
-                town.p.y = (i * D.town.m) + D.town.h + (i * D.town.h) - D.towns.h / 2;
-
-                town.insertInto(stage, this);
+                town_button.p.hidden = false;
+                town_button.animate({ x: x, y: y }, 0.5);
+                town_button.setTown(town);
             }
         },
 
@@ -266,61 +310,163 @@ window.addEventListener("load", function () {
             return this.p.list.length();
         },
 
+        /* add town data to the world */
         add: function (town) {
             if (this.p.list.isEmpty()) {
                 this.p.current_town = town;
+                Q.state.set("current_town", this.p.current_town.p.name);
             }
 
             this.p.list.push(town);
-        },
 
-        visit: function (e) {
-            console.log("visited");
-            e.preventDefault();
-
-            this.p.visited = true;
+            /* TODO we can't insert 1 button for every town */
+            /* but we must have as many towns as the highest degree of any town */
+            var town_button = new Q.TownButton();
+            town_button.p.hidden = true;
+            town_button.insertInto(this.stage, this);
         }
     });
 
-    Q.UI.Button.extend("Town", {
-        init: function (population, p) {
+    Q.Sprite.extend("Town", {
+        init: function (p) {
+            this._super(Q._extend(p || {}, {
+                id: Q.state.nextTown(),
+                name: Q.state.townName(),
+                visited: false,
+                badges: [],
+                cultists: 0,
+                population: 2000
+            }));
+
+            this.p.demographics = new Q.UI.Text({
+                label: "Cultists: 0 (0%)",
+                color: "black",
+                y: 20,
+                z: 1
+            })
+
+            this.on("tic", this.tic);
+        },
+
+        tic: function () {
+
+            this.growCult();
+        },
+
+        getCultistPercent: function () {
+            return parseInt((this.p.cultists / this.p.population)*100, 10);
+        },
+
+        growCult: function () {
+            if (this.p.name === Q.state.get("current_town")) {
+                this.p.cultists = (this.p.cultists > 0)? this.p.cultists : 1;
+            }
+
+            this.p.cultists = this.grow(this.p.cultists);
+
+            this.p.demographics.p.label = "Cultists: " + parseInt(this.p.cultists) + " (" + this.getCultistPercent() + "%)";
+
+            if (this.getCultistPercent() === 5) {
+                var badge = new Q.Badge();
+                this.p.badges.push(badge);
+                this.p.button.addBadge(badge);
+            }
+        },
+
+        /* as cultists percent goes to 50% g should go to 0 */
+        grow: function (cultists) {
+            var growth_factor = 0.5 * (1 / (1 + Math.pow(this.getCultistPercent(), 2)));
+
+            return (cultists) * (1 + growth_factor);
+        }
+    });
+
+    Q.Sprite.extend("Badge", {
+        init: function (p) {
+            this._super(Q._extend(p || {}, {
+                asset: "illuminati.jpg",
+                w: 32,
+                h: 32,
+                scale: .04,
+                z: 2
+            }));
+        }
+
+    });
+
+    Q.UI.Button.extend("TownButton", {
+        init: function (p) {
 
             this._super(Q._extend(p || {}, {
                 label: "",
-                id: Q.state.nextTown(),
-                name: Q.state.townName(),
-                population: population,
-                visited: false,
                 fill: "white",
                 border: 1,
                 shadow: 3,
                 shadowColor: "rgba(0,0,0,0.5)",
                 w: D.town.w,
                 h: D.town.h,
-            }), this.makePrimary);
+                z: 0
+            }), this.travel);
+
+            this.add("tween");
+        },
+
+        travel: function () {
+
+            this.container.trigger("travel", this);
+        },
+
+        setTown: function (town) {
+            this.setName(town.p.name);
+            this.setDemographics(town.p.demographics);
+            this.p.town = town;
+
+            var badges = town.p.badges;
+            for (var i = 0; i < badges.length; i++) {
+
+                this.addBadge(badges[i]);
+            }
+        },
+
+        addBadge: function (badge) {
+            this.insert(badge);
+        },
+
+        setDemographics: function (demographics) {
+            if (this.p.demographics_label) {
+                this.stage.remove(this.p.demographics_label);
+            }
+
+            /* prepare the number of cultists */
+            this.p.demographics_label = demographics;
+
+            var w = this.p.demographics_label.p.w;
+
+            this.p.demographics_label.p.x = (D.town.w / 2) - w/2 - 30;
+
+            this.insert(this.p.demographics_label);
+        },
+
+        setName: function (name) {
+            if (this.p.name_label) {
+                this.p.name_label.destroy();
+            }
 
             this.p.name_label = new Q.UI.Text({
-                label: this.p.name,
+                label: name,
                 color: "black",
+                y: -20,
+                z: 1
             });
 
             var w = this.p.name_label.p.w;
 
             this.p.name_label.p.x = (D.town.w / 2) - w/2 - 30;
-            this.add("tween");
-        },
-
-        makePrimary: function () {
-            console.log("travelling");
-
-            this.container.trigger("travel", this);
+            this.insert(this.p.name_label);
         },
 
         insertInto: function (stage, container) {
-            this.p.container = container;
-
             stage.insert(this, container);
-            stage.insert(this.p.name_label, this);
         },
 
         isVisited: function () {
@@ -332,7 +478,7 @@ window.addEventListener("load", function () {
         var index = parseInt((Math.random() * 100) % TOWN_NAMES.length, 10);
 
         var name = TOWN_NAMES[index];
-        TOWN_NAMES.slice(index, 1);
+        TOWN_NAMES.splice(index, 1);
 
         return name;
     },
@@ -345,9 +491,6 @@ window.addEventListener("load", function () {
     };
 
     Q.scene("world", function (stage) {
-        Q.state.reset({
-            next_town: 1
-        });
 
         /* fill the world with a graph of named towns */
         var world = new Q.World();
@@ -356,18 +499,15 @@ window.addEventListener("load", function () {
         /* these are place holders */
 
         /* set up the initial town and adjacencies */
-        world.add(new Q.Town(100));
-        world.add(new Q.Town(120));
-        world.add(new Q.Town(140));
+        world.add(new Q.Town());
+        world.add(new Q.Town());
+        world.add(new Q.Town());
+        world.add(new Q.Town());
 
         world.insertInto(stage);
     });
 
     Q.scene("stats", function(stage) {
-        Q.state.reset({
-            population: 0,
-            time: 0
-        });
 
         /* an actor that counts seconds */
         stage.insert(new Q.Ticker(1));
@@ -395,8 +535,8 @@ window.addEventListener("load", function () {
             y: 0
         }), stats_container);
 
-        var population = stage.insert(new Q.UI.Text({
-            label: "Population: 1/100",
+        var soulfire = stage.insert(new Q.UI.Text({
+            label: "Soulfire: 1",
             color: "white",
             x: (dimensions.w / 3),
             y: 0
@@ -407,18 +547,26 @@ window.addEventListener("load", function () {
             time.p.label = "Day: " + val
         };
 
-        stage.update_population = function (val) {
-            population.p.label = "Population: " + val + "/100"
+        stage.update_soulfire = function (val) {
+            soulfire.p.label = "Soulfire: " + val
         };
 
-        Q.state.on("change.population", stage.update_population);
+        Q.state.on("change.soulfire", stage.update_soulfire);
         Q.state.on("change.time", stage.update_time);
     });
 
     //load assets
-    Q.load(["signal_tiles.png"], function() {
-        Q.stageScene("world", 0);
+    Q.load(["illuminati.jpg"], function() {
+        Q.state.reset({
+            soulfire: 0,
+            time: 0,
+            next_town: 1,
+            current_town: ""
+        });
+
+        Q.stageScene("world", 0, { sort: true });
         Q.stageScene("stats", 1);
+
     });
 
 });
