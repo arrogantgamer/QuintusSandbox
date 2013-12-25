@@ -335,7 +335,8 @@ window.addEventListener("load", function () {
                 visited: false,
                 badges: [],
                 cultists: 0,
-                population: 2000
+                population: 2000,
+                investigation: false
             }));
 
             this.p.demographics = new Q.UI.Text({
@@ -351,7 +352,25 @@ window.addEventListener("load", function () {
         tic: function () {
 
             this.growCult();
+            this.checkInvestigation();
             this.contributeSoulfire();
+        },
+
+        checkInvestigation: function () {
+            var rand = Math.random() * 1000;
+
+            if (rand < this.getCultistPercent()) {
+                var badge = new Q.Investigation();
+                var length = this.p.badges.length;
+
+                this.p.badges.push(badge);
+
+                badge.p.x = length * 64 + length * 5;
+                badge.p.y = -(badge.p.h) / 2;
+
+                this.p.button.addBadge(badge);
+                this.p.investigation = true;
+            }
         },
 
         getCultistPercent: function () {
@@ -360,7 +379,13 @@ window.addEventListener("load", function () {
 
         /* this is really what towns are for */
         contributeSoulfire: function () {
+            var soulfire = parseInt(this.p.cultists / 10, 10);
 
+            if (this.p.investigation) {
+                Q.state.addSoulfire(1);
+            } else {
+                Q.state.addSoulfire(soulfire);
+            }
         },
 
         growCult: function () {
@@ -374,18 +399,25 @@ window.addEventListener("load", function () {
             }
 
             /* once a cell has gained momentum, it can grow without you */
-            if (current_town || this.getCultistPercent() >= 10) {
-                this.p.cultists = this.grow(p_0);
+            if (!this.p.investigation && (current_town || this.p.independent)) {
+                this.p.cultists = this.grow(p_0, current_town);
             } else {
                 this.p.cultists = this.steady(p_0);
             }
 
             this.p.demographics.p.label = "Cultists: " + parseInt(this.p.cultists) + " (" + this.getCultistPercent() + "%)";
 
-            if (this.getCultistPercent() === 10) {
-                var badge = new Q.Badge();
+            if (!this.p.independent && this.getCultistPercent() === 1) {
+                var badge = new Q.Cult();
+                var length = this.p.badges.length;
+
                 this.p.badges.push(badge);
+
+                badge.p.x = length * 64 + length * 5;
+                badge.p.y = -(badge.p.h) / 2;
+
                 this.p.button.addBadge(badge);
+                this.p.independent = true;
             }
         },
 
@@ -393,9 +425,9 @@ window.addEventListener("load", function () {
             return cultists;
         },
 
-        /* as cultists percent goes to 50% g should go to 0 */
-        grow: function (cultists) {
-            var growth_factor = 0.5 * (1 / (1 + Math.pow(this.getCultistPercent(), 2)));
+        grow: function (cultists, current_town) {
+            var boost = (current_town)? 1 : 0;
+            var growth_factor = 0.5 * ((1 + boost) / (1 + Math.pow(this.getCultistPercent(), 2)));
 
             return (cultists) * (1 + growth_factor);
         }
@@ -404,11 +436,28 @@ window.addEventListener("load", function () {
     Q.Sprite.extend("Badge", {
         init: function (p) {
             this._super(Q._extend(p || {}, {
-                asset: "illuminati.jpg",
                 w: 32,
                 h: 32,
-                scale: .04,
                 z: 2
+            }));
+        }
+
+    });
+
+    Q.Badge.extend("Cult", {
+        init: function (p) {
+            this._super(Q._extend(p || {}, {
+                asset: "illuminati.jpg",
+                scale: .04,
+            }));
+        }
+    });
+
+    Q.Badge.extend("Investigation", {
+        init: function (p) {
+            this._super(Q._extend(p || {}, {
+                asset: "investigation.png",
+                scale: .04,
             }));
         }
 
@@ -443,8 +492,9 @@ window.addEventListener("load", function () {
 
             var badges = town.p.badges;
             for (var i = 0; i < badges.length; i++) {
+                var badge = badges[i];
 
-                this.addBadge(badges[i]);
+                this.addBadge(badge);
             }
         },
 
@@ -493,6 +543,11 @@ window.addEventListener("load", function () {
             return this.p.visited;
         }
     });
+
+    Q.state.addSoulfire = function (soulfire) {
+        var current = this.get("soulfire") + soulfire;
+        this.set("soulfire", current);
+    },
 
     Q.state.townName = function () {
         var index = parseInt((Math.random() * 100) % TOWN_NAMES.length, 10);
@@ -576,7 +631,7 @@ window.addEventListener("load", function () {
     });
 
     //load assets
-    Q.load(["illuminati.jpg"], function() {
+    Q.load(["investigation.png", "illuminati.jpg"], function() {
         Q.state.reset({
             soulfire: 0,
             time: 0,
