@@ -509,13 +509,26 @@ window.addEventListener("load", function () {
             this.p.town = town;
         },
 
+        addBadge: function (badge) {
+            this.p.badges.push(badge);
+            this.insert(badge);
+        },
+
         removeBadge: function (ui_object) {
             this.stage.remove(ui_object);
         },
 
+        getNumberOfBadges: function () {
+            return this.p.badges.length;
+        },
+
+        eachBadge: function (callback) {
+            this.p.badges.forEach(callback, this);
+        },
+
         setBadges: function (town) {
-            if (this.p.badges.length > 0) {
-                this.p.badges.forEach(this.removeBadge, this);
+            if (this.getNumberOfBadges() > 0) {
+                this.eachBadge(this.removeBadge);
             }
 
             if (town.isBeingInvestigated()) {
@@ -530,11 +543,6 @@ window.addEventListener("load", function () {
                 var badge = new Q.Player();
                 this.addBadge(badge);
             }
-        },
-
-        addBadge: function (badge) {
-            this.p.badges.push(badge);
-            this.insert(badge);
         },
 
         setDemographics: function (demographics) {
