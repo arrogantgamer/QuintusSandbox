@@ -333,11 +333,14 @@ window.addEventListener("load", function () {
                 id: Q.state.nextTown(),
                 name: Q.state.townName(),
                 visited: false,
-                badges: [],
                 cultists: 0,
                 population: 2000,
-                investigation: false
+                obscurity: 1,
+                investigations: 0
             }));
+
+            this.p.investigation_badge = new Q.Investigation();
+            this.p.cult_badge          = new Q.Cult();
 
             this.p.demographics = new Q.UI.Text({
                 label: "Cultists: 0 (0%)",
@@ -349,6 +352,18 @@ window.addEventListener("load", function () {
             this.on("tic", this.tic);
         },
 
+        isBeingInvestigated: function () {
+            return this.p.investigations > Math.pow(this.p.obscurity, 2);
+        },
+
+        isCurrent: function () {
+            return town.p.name === Q.state.get("current_town");
+        },
+
+        isIndependent: function () {
+            return this.p.independent;
+        },
+
         tic: function () {
 
             this.growCult();
@@ -357,20 +372,18 @@ window.addEventListener("load", function () {
         },
 
         checkInvestigation: function () {
-            var rand = Math.random() * 1000;
+            var rand = Math.random() * 10;
 
             if (rand < this.getCultistPercent()) {
-                var badge = new Q.Investigation();
-                var length = this.p.badges.length;
-
-                this.p.badges.push(badge);
-
-                badge.p.x = length * 64 + length * 5;
-                badge.p.y = -(badge.p.h) / 2;
-
-                this.p.button.addBadge(badge);
-                this.p.investigation = true;
+                this.p.investigations += 1;
             }
+
+            if (this.isBeingInvestigated()) {
+                this.p.button.addBadge(this.p.investigation_badge);
+            } else {
+                this.p.button.removeBadge(this.p.investigation_badge);
+            }
+
         },
 
         getCultistPercent: function () {
@@ -381,7 +394,7 @@ window.addEventListener("load", function () {
         contributeSoulfire: function () {
             var soulfire = parseInt(this.p.cultists / 10, 10);
 
-            if (this.p.investigation) {
+            if (this.isBeingInvestigated()) {
                 Q.state.addSoulfire(1);
             } else {
                 Q.state.addSoulfire(soulfire);
@@ -399,7 +412,7 @@ window.addEventListener("load", function () {
             }
 
             /* once a cell has gained momentum, it can grow without you */
-            if (!this.p.investigation && (current_town || this.p.independent)) {
+            if (!this.isBeingInvestigated() && (current_town || this.p.independent)) {
                 this.p.cultists = this.grow(p_0, current_town);
             } else {
                 this.p.cultists = this.steady(p_0);
@@ -408,15 +421,8 @@ window.addEventListener("load", function () {
             this.p.demographics.p.label = "Cultists: " + parseInt(this.p.cultists) + " (" + this.getCultistPercent() + "%)";
 
             if (!this.p.independent && this.getCultistPercent() === 1) {
-                var badge = new Q.Cult();
-                var length = this.p.badges.length;
 
-                this.p.badges.push(badge);
-
-                badge.p.x = length * 64 + length * 5;
-                badge.p.y = -(badge.p.h) / 2;
-
-                this.p.button.addBadge(badge);
+                this.p.button.addBadge(this.p.cult_badge);
                 this.p.independent = true;
             }
         },
@@ -438,6 +444,7 @@ window.addEventListener("load", function () {
             this._super(Q._extend(p || {}, {
                 w: 32,
                 h: 32,
+                y: -(32) / 2,
                 z: 2
             }));
         }
@@ -448,6 +455,7 @@ window.addEventListener("load", function () {
         init: function (p) {
             this._super(Q._extend(p || {}, {
                 asset: "player.png",
+                x: 0 * (64 + 5) - 200
             }));
         }
     });
@@ -455,7 +463,8 @@ window.addEventListener("load", function () {
     Q.Badge.extend("Cult", {
         init: function (p) {
             this._super(Q._extend(p || {}, {
-                asset: "cult.png"
+                asset: "cult.png",
+                x: 1 * (64 + 5) - 200,
             }));
         }
     });
@@ -463,7 +472,8 @@ window.addEventListener("load", function () {
     Q.Badge.extend("Investigation", {
         init: function (p) {
             this._super(Q._extend(p || {}, {
-                asset: "investigation.png"
+                asset: "investigation.png",
+                x: 2 * (64 + 5) - 200,
             }));
         }
 
@@ -480,7 +490,8 @@ window.addEventListener("load", function () {
                 shadowColor: "rgba(0,0,0,0.5)",
                 w: D.town.w,
                 h: D.town.h,
-                z: 0
+                z: 0,
+                badges: []
             }), this.travel);
 
             this.add("tween");
@@ -494,27 +505,35 @@ window.addEventListener("load", function () {
         setTown: function (town) {
             this.setName(town.p.name);
             this.setDemographics(town.p.demographics);
+            this.setBadges(town);
             this.p.town = town;
+        },
 
-            var badges = town.p.badges;
+        removeBadge: function (ui_object) {
+            this.stage.remove(ui_object);
+        },
 
-            if (town.p.name === Q.state.get("current_town")) {
-                var length = badges.length;
-                var badge = new Q.Player();
-                badge.p.x = length * 64 + length * 5;
-                badge.p.y = -(badge.p.h) / 2;
-
-                badges.push(badge);
+        setBadges: function (town) {
+            if (this.p.badges.length > 0) {
+                this.p.badges.forEach(this.removeBadge, this);
             }
 
-            for (var i = 0; i < badges.length; i++) {
-                var badge = badges[i];
+            if (town.isBeingInvestigated()) {
+                this.addBadge(new Q.Investigation());
+            }
 
+            if (town.isIndependent()) {
+                this.addBadge(new Q.Cult());
+            }
+
+            if (town.isCurrent()) {
+                var badge = new Q.Player();
                 this.addBadge(badge);
             }
         },
 
         addBadge: function (badge) {
+            this.p.badges.push(badge);
             this.insert(badge);
         },
 
