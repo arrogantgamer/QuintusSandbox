@@ -444,11 +444,18 @@ window.addEventListener("load", function () {
 
     });
 
+    Q.Badge.extend("Player", {
+        init: function (p) {
+            this._super(Q._extend(p || {}, {
+                asset: "player.png",
+            }));
+        }
+    });
+
     Q.Badge.extend("Cult", {
         init: function (p) {
             this._super(Q._extend(p || {}, {
-                asset: "illuminati.jpg",
-                scale: .04,
+                asset: "cult.png"
             }));
         }
     });
@@ -456,8 +463,7 @@ window.addEventListener("load", function () {
     Q.Badge.extend("Investigation", {
         init: function (p) {
             this._super(Q._extend(p || {}, {
-                asset: "investigation.png",
-                scale: .04,
+                asset: "investigation.png"
             }));
         }
 
@@ -491,6 +497,16 @@ window.addEventListener("load", function () {
             this.p.town = town;
 
             var badges = town.p.badges;
+
+            if (town.p.name === Q.state.get("current_town")) {
+                var length = badges.length;
+                var badge = new Q.Player();
+                badge.p.x = length * 64 + length * 5;
+                badge.p.y = -(badge.p.h) / 2;
+
+                badges.push(badge);
+            }
+
             for (var i = 0; i < badges.length; i++) {
                 var badge = badges[i];
 
@@ -631,7 +647,7 @@ window.addEventListener("load", function () {
     });
 
     //load assets
-    Q.load(["investigation.png", "illuminati.jpg"], function() {
+    Q.load(["investigation.png", "cult.png", "player.png", "obscure.png"], function() {
         Q.state.reset({
             soulfire: 0,
             time: 0,
