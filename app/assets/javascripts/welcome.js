@@ -103,6 +103,7 @@ window.addEventListener("load", function () {
             Q.state.set("time", time + 1);
 
             this.p.clock = 0;
+            console.log("tic");
             Q("World", 0).trigger("tic");
         }
 
@@ -254,12 +255,13 @@ window.addEventListener("load", function () {
 
             for (var i = 0; i < towns.length; i++) {
                 var town = towns[i];
+                var town_button = town.p.button;
+                town.p.button = null;
 
                 /* animate the town to slide away */
-                town.p.button.animate({ x: -(D.towns.w), y: town.p.button.p.y }, 0.5, {
+                town_button.animate({ x: -(D.towns.w), y: town_button.p.y }, 0.5, {
                     callback: function () {
                         /* use a debounced function call to act on all animation being complete */
-                        town.p.button = null;
                         town_button.p.hidden = true;
                         self.insertInto(self.stage);
                     }
@@ -277,6 +279,7 @@ window.addEventListener("load", function () {
         },
 
         insertInto: function (stage) {
+            console.log("setting up:");
             /* find the current towns, and then add labels to
             * enough buttons, and then show those buttons */
 
@@ -284,7 +287,8 @@ window.addEventListener("load", function () {
 
             for (var i = 0; i < towns.length; i++) {
                 town = towns[i];
-                town_button = this.children[i];
+                console.log(town.p.name);
+                var town_button = this.children[i];
                 town.p.button = town_button;
 
                 var offset = (i > 0)? 100 : 20;
@@ -292,9 +296,10 @@ window.addEventListener("load", function () {
                 var y = (i * D.town.m) + D.town.h + (i * D.town.h) - D.towns.h / 2;
 
                 town_button.p.hidden = false;
-                town_button.animate({ x: x, y: y }, 0.5);
                 town_button.setTown(town);
+                town_button.animate({ x: x, y: y }, 0.5);
             }
+
         },
 
         getNeighbours: function () {
@@ -343,13 +348,6 @@ window.addEventListener("load", function () {
             this.p.investigation_badge = new Q.Investigation();
             this.p.cult_badge          = new Q.Cult();
 
-            this.p.demographics = new Q.UI.Text({
-                label: "Cultists: 0 (0%)",
-                color: "black",
-                y: 20,
-                z: 1
-            })
-
             this.on("tic", this.tic);
         },
 
@@ -366,10 +364,14 @@ window.addEventListener("load", function () {
         },
 
         tic: function () {
-
             this.growCult();
             this.checkInvestigation();
             this.contributeSoulfire();
+
+            /* don't do this stuff for the off-screen towns */
+            if (this.p.button) {
+                this.updateButton();
+            }
         },
 
         checkInvestigation: function () {
@@ -377,14 +379,6 @@ window.addEventListener("load", function () {
 
             if (rand < this.getCultistPercent()) {
                 this.p.investigations += 1;
-            }
-
-            if (this.p.button) {
-                if (this.isBeingInvestigated()) {
-                    this.p.button.addBadge(this.p.investigation_badge);
-                } else {
-                    this.p.button.removeBadge(this.p.investigation_badge);
-                }
             }
         },
 
@@ -403,6 +397,23 @@ window.addEventListener("load", function () {
             }
         },
 
+        /* do all the visual stuff */
+        updateButton: function () {
+            this.p.button.p.demographics_label.p.label = "Cultists: " + parseInt(this.p.cultists) + " (" + this.getCultistPercent() + "%)";
+
+            if (!this.p.independent && this.getCultistPercent() === 10) {
+
+                this.p.button.addBadge(this.p.cult_badge);
+                this.p.independent = true;
+            }
+
+            if (this.isBeingInvestigated()) {
+                this.p.button.addBadge(this.p.investigation_badge);
+            } else {
+                this.p.button.removeBadge(this.p.investigation_badge);
+            }
+        },
+
         growCult: function () {
             var p_0 = this.p.cultists;
             var current_town = false;
@@ -418,14 +429,6 @@ window.addEventListener("load", function () {
                 this.p.cultists = this.grow(p_0, current_town);
             } else {
                 this.p.cultists = this.steady(p_0);
-            }
-
-            this.p.demographics.p.label = "Cultists: " + parseInt(this.p.cultists) + " (" + this.getCultistPercent() + "%)";
-
-            if (!this.p.independent && this.getCultistPercent() === 10) {
-
-                this.p.button.addBadge(this.p.cult_badge);
-                this.p.independent = true;
             }
         },
 
@@ -505,10 +508,13 @@ window.addEventListener("load", function () {
         },
 
         setTown: function (town) {
-            this.setName(town.p.name);
-            this.setDemographics(town.p.demographics);
-            this.setBadges(town);
             this.p.town = town;
+            this.setName(town.p.name);
+            this.setDemographics({
+                cultists: parseInt(town.p.cultists, 10),
+                percent: parseInt(town.getCultistPercent())
+            });
+            this.setBadges(town);
         },
 
         hasBadge: function (badge) {
@@ -566,12 +572,18 @@ window.addEventListener("load", function () {
         },
 
         setDemographics: function (demographics) {
+
             if (this.p.demographics_label) {
                 this.stage.remove(this.p.demographics_label);
             }
 
             /* prepare the number of cultists */
-            this.p.demographics_label = demographics;
+            this.p.demographics_label = new Q.UI.Text({
+                label: "Cultists: " + demographics.cultists + " (" + demographics.percent + "%)",
+                color: "black",
+                y: 20,
+                z: 1
+            })
 
             var w = this.p.demographics_label.p.w;
 
