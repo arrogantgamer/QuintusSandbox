@@ -378,12 +378,13 @@ window.addEventListener("load", function () {
                 this.p.investigations += 1;
             }
 
-            if (this.isBeingInvestigated()) {
-                this.p.button.addBadge(this.p.investigation_badge);
-            } else {
-                this.p.button.removeBadge(this.p.investigation_badge);
+            if (this.p.button) {
+                if (this.isBeingInvestigated()) {
+                    this.p.button.addBadge(this.p.investigation_badge);
+                } else {
+                    this.p.button.removeBadge(this.p.investigation_badge);
+                }
             }
-
         },
 
         getCultistPercent: function () {
@@ -510,20 +511,31 @@ window.addEventListener("load", function () {
         },
 
         addBadge: function (badge) {
-            this.p.badges.push(badge);
+            this.p.badges[badge.className] = badge;
             this.insert(badge);
         },
 
-        removeBadge: function (ui_object) {
-            this.stage.remove(ui_object);
+        removeBadge: function (key) {
+            if (key.className) {
+                key = key.className;
+            }
+
+            var badge = this.p.badges[key];
+
+            if (badge) {
+                this.stage.remove(badge);
+            }
         },
 
+        // TODO replace this with a property
         getNumberOfBadges: function () {
-            return this.p.badges.length;
+            return Object.keys(this.p.badges).length;
         },
 
         eachBadge: function (callback) {
-            this.p.badges.forEach(callback, this);
+            var keys = Object.keys(this.p.badges);
+
+            keys.forEach(callback, this);
         },
 
         setBadges: function (town) {
