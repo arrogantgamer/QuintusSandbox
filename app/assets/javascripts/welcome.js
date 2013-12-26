@@ -259,6 +259,7 @@ window.addEventListener("load", function () {
                 town.p.button.animate({ x: -(D.towns.w), y: town.p.button.p.y }, 0.5, {
                     callback: function () {
                         /* use a debounced function call to act on all animation being complete */
+                        town.p.button = null;
                         town_button.p.hidden = true;
                         self.insertInto(self.stage);
                     }
@@ -421,7 +422,7 @@ window.addEventListener("load", function () {
 
             this.p.demographics.p.label = "Cultists: " + parseInt(this.p.cultists) + " (" + this.getCultistPercent() + "%)";
 
-            if (!this.p.independent && this.getCultistPercent() === 1) {
+            if (!this.p.independent && this.getCultistPercent() === 10) {
 
                 this.p.button.addBadge(this.p.cult_badge);
                 this.p.independent = true;
@@ -434,7 +435,7 @@ window.addEventListener("load", function () {
 
         grow: function (cultists, current_town) {
             var boost = (current_town)? 1 : 0;
-            var growth_factor = 0.5 * ((1 + boost) / (1 + Math.pow(this.getCultistPercent(), 2)));
+            var growth_factor = 0.5 * (1 / (1 + Math.pow(this.getCultistPercent(), (3 - boost))));
 
             return (cultists) * (1 + growth_factor);
         }
@@ -510,7 +511,13 @@ window.addEventListener("load", function () {
             this.p.town = town;
         },
 
+        hasBadge: function (badge) {
+            return this.p.badges[badge.className] !== undefined;
+        },
+
         addBadge: function (badge) {
+            if (this.hasBadge(badge)) return;
+
             this.p.badges[badge.className] = badge;
             this.insert(badge);
         },
@@ -523,6 +530,7 @@ window.addEventListener("load", function () {
             var badge = this.p.badges[key];
 
             if (badge) {
+                delete this.p.badges[badge.className];
                 this.stage.remove(badge);
             }
         },
