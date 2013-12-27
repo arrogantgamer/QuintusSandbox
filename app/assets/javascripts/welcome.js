@@ -1,3 +1,11 @@
+/* NEXT STEPS */
+/*  - add additional events/abilities that are location based
+ *  - towns should lose independence if their cult is too small
+ *  - re-factor to make things easier
+ *  - add travel time between towns
+ *  - add portals between worlds (cliques)
+ *  - add a "flash" that displays information like, "Alnwic is under investigation!"
+* */
 
 window.addEventListener("load", function () {
     var CANVAS_WIDTH = 1024;
@@ -118,7 +126,6 @@ window.addEventListener("load", function () {
             Q.state.set("time", time + 1);
 
             this.p.clock = 0;
-            console.log("tic");
             Q("World", 0).trigger("tic");
         }
 
@@ -255,7 +262,6 @@ window.addEventListener("load", function () {
         },
 
         insertInto: function (stage) {
-            console.log("setting up:");
             /* find the current towns, and then add labels to
             * enough buttons, and then show those buttons */
 
@@ -360,7 +366,6 @@ window.addEventListener("load", function () {
         },
 
         insertInto: function (stage) {
-            console.log("setting up:");
             /* find the current towns, and then add labels to
             * enough buttons, and then show those buttons */
 
@@ -368,7 +373,6 @@ window.addEventListener("load", function () {
 
             for (var i = 0; i < towns.length; i++) {
                 town = towns[i];
-                console.log(town.p.name);
                 var town_button = this.children[i];
                 town.p.button = town_button;
 
@@ -422,7 +426,7 @@ window.addEventListener("load", function () {
                 name: Q.state.townName(),
                 visited: false,
                 cultists: 0,
-                population: parseInt(Math.random() * 10, 10) * 1000,
+                population: (parseInt(Math.random() * 10, 10) + 2) * 1000,
                 obscurity: 1,
                 investigations: 0
             }));
@@ -457,7 +461,7 @@ window.addEventListener("load", function () {
         },
 
         checkInvestigation: function () {
-            var rand = Math.random() * 1000;
+            var rand = Math.random() * 100;
 
             if (rand < this.getCultistPercent()) {
                 this.p.investigations += 1;
@@ -483,7 +487,7 @@ window.addEventListener("load", function () {
         updateButton: function () {
             this.p.button.p.demographics_label.p.label = "cultists: " + parseInt(this.p.cultists) + " (" + this.getCultistPercent() + "%)";
 
-            if (!this.p.independent && this.getCultistPercent() === 10) {
+            if (!this.p.independent && this.getCultistPercent() == 5) {
 
                 this.p.button.addBadge(this.p.cult_badge);
                 this.p.independent = true;
@@ -507,11 +511,16 @@ window.addEventListener("load", function () {
             }
 
             /* once a cell has gained momentum, it can grow without you */
-            if (!this.isBeingInvestigated() && (current_town || this.p.independent)) {
+            if (this.canGrown(current_town)) {
                 this.p.cultists = this.grow(p_0, current_town);
             } else {
                 this.p.cultists = this.steady(p_0);
             }
+        },
+
+        /* TODO population must be an upper max */
+        canGrown: function (is_current_town) {
+            return (!this.isBeingInvestigated() && (is_current_town || this.p.independent));
         },
 
         steady: function (cultists) {
@@ -519,8 +528,8 @@ window.addEventListener("load", function () {
         },
 
         grow: function (cultists, current_town) {
-            var boost = (current_town)? 1 : 0;
-            var growth_factor = 0.5 * (1 / (1 + Math.pow(this.getCultistPercent(), (3 - boost))));
+            var boost = (current_town)? 0.5 : 1;
+            var growth_factor = 0.5 * (1 / (1 + Math.pow(this.getCultistPercent(), 2) * boost));
 
             return (cultists) * (1 + growth_factor);
         }
@@ -583,6 +592,15 @@ window.addEventListener("load", function () {
             this.add("tween");
         },
 
+        update_cost: function (destination) {
+            var action     = this.p.action;
+            var property   = action.p.property;
+            var multiplier = destination.p[property];
+            var cost       = action.p.base_cost * Math.pow(multiplier, 2);
+
+            this.p.cost_label.p.label = "(" + cost + " Soulfire)";
+        },
+
         setAction: function (action) {
             this.p.action = action;
 
@@ -594,47 +612,52 @@ window.addEventListener("load", function () {
         },
 
         setCost: function (cost) {
-            this.addLabel("(" + cost + " Soulfire)", {
+            this.addLabel({
+                name: "cost",
+                content: "(" + cost + " Soulfire)",
                 x: (D.action.w / 2) - 94,
                 y: 5,
                 size: 16
             });
         },
 
-        addLabel: function (label_string, options) {
-            if (label_string === undefined) return;
+        addLabel: function (data) {
+            if (data === undefined) return;
 
-            options = options || {};
-            var label_name = label_string + '_label';
+            var label_name = data.name + '_label';
 
             if (this.p[label_name]) {
                 this.p[label_name].destroy();
             }
 
             var label = new Q.UI.Text({
-                label: label_string,
+                label: data.content,
                 color: "black",
-                y: options.y || 0,
+                y: data.y || 0,
                 z: 1,
-                size: options.size || 24
+                size: data.size || 24
             });
 
             var w = label.p.w;
-            label.p.x = (options.x - w/2) || (-w/2);
+            label.p.x = (data.x - w/2) || (-w/2);
 
             this.p[label_name] = label;
             this.insert(this.p[label_name]);
         },
 
         setName: function (name) {
-            this.addLabel(name, {
+            this.addLabel({
+                name: "name",
+                content: name,
                 x: (D.action.w / 2) - 94,
                 y: -20,
             });
         },
 
         setDescription: function (description) {
-            this.addLabel(description, {
+            this.addLabel({
+                name: "description",
+                content: description,
                 x: ((D.action.w / 2) - 94),
                 y: 29,
                 size: 14
@@ -676,6 +699,10 @@ window.addEventListener("load", function () {
             this._super(Q._extend(p || {}, {
                 cost: p.base_cost
             }));
+        },
+
+        getCost: function (multiplier) {
+            return this.p.base_cost * Math.pow(multiplier, 2);
         }
     });
 
@@ -876,20 +903,66 @@ window.addEventListener("load", function () {
             icon: "sacrifice.png",
             base_cost: 0
         }, function () {
-            Q.state.trigger("sacrifice");
+            Q.state.sacrificeCultists(this.p.action);
         }));
 
         actions.add(new Q.Action({
             name: "Obscure",
             description: "Shrouds cult activity in mysteries.",
             icon: "obscure.png",
-            base_cost: 100
+            base_cost: 1000,
+            property: "obscurity"
         }, function () {
-            Q.state.trigger("obscure");
+            var soulfire = Q.state.get("soulfire");
+            var town = Q.state.get("current_town");
+            var multiplier = town.p.obscurity;
+            var action = this.p.action;
+            var cost = action.getCost(multiplier);
+
+            if (soulfire < cost) return;
+
+            Q.state.set("soulfire", soulfire - cost);
+            Q.state.obscureTown(action);
+
+            /* recalculate the cost for display */
+            multiplier = town.p.obscurity;
+            cost = action.getCost(multiplier);
+
+            this.p.cost_label.p.label = "(" + cost + " Soulfire)";
         }));
 
+        stage.update_action_labes = function (destination) {
+
+            actions.children.forEach(function (action) {
+                if (action.p.action.p.property) {
+                    action.update_cost(destination);
+                }
+            });
+        };
+
         actions.insertInto(stage);
+        Q.state.on("change.current_town", stage.update_action_labes);
     });
+
+    Q.state.obscureTown = function (action) {
+        var town = this.p.current_town;
+
+        town.p.obscurity += 1;
+    };
+
+    Q.state.sacrificeCultists = function (action) {
+        var town = this.p.current_town;
+        var soulfire = Q.state.get("soulfire");
+
+        var sacrifice = parseInt(town.p.cultists / 2, 10);
+        town.p.cultists -= sacrifice;
+        town.p.population -= sacrifice;
+        town.p.investigations = parseInt(town.p.investigations / 2, 10); // TODO dou?
+
+        town.p.button.p.population_label.p.label = "population: " + parseInt(town.p.population);
+
+        Q.state.set("soulfire", soulfire + sacrifice);
+    };
 
     Q.scene("stats", function(stage) {
 
