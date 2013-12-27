@@ -12,13 +12,25 @@ window.addEventListener("load", function () {
     };
 
     D.towns = {
-        w: D.canvas.w - 20,
+        w: (D.canvas.w / 10) * 6 - 20,
         h: (D.canvas.h / 10) * 8,
         m: 20
     };
 
+    D.actions = {
+        w: D.canvas.w - D.towns.w - 2 * D.towns.m,
+        h: (D.canvas.h / 10) * 8,
+        m: 20
+    };
+
+    D.action = {
+        w: 0,
+        h: 0,
+        m: 20
+    };
+
     D.town = {
-        w: (D.towns.w / 10) * 5,
+        w: (D.towns.w / 10) * 9,
         h: (D.towns.h) / 6,
         m: 10
     };
@@ -214,6 +226,72 @@ window.addEventListener("load", function () {
 
             this.p.length -= 1;
             return node.getData();
+        }
+    });
+
+    Q.UI.Container.extend("Actions", {
+        init: function (p) {
+            this._super(p, {
+                list: [],
+                fill: "gray",
+                x: D.towns.m + D.towns.w + D.actions.w / 2,
+                y: D.actions.m + D.actions.h / 10 + D.actions.h / 2,
+                border: 1,
+                shadow: 3,
+                shadowColor: "rgba(0,0,0,0.5)",
+                w: D.actions.w,
+                h: D.actions.h
+            });
+
+            this.insertInto = Q.debounce(this.insertInto);
+        },
+
+        /* return a copy of the array */
+        getActions: function () {
+            return this.p.list.slice();
+        },
+
+        insertInto: function (stage) {
+            console.log("setting up:");
+            /* find the current towns, and then add labels to
+            * enough buttons, and then show those buttons */
+
+            var actions = this.getActions();
+
+            for (var i = 0; i < actions.length; i++) {
+
+                action = actions[i];
+
+                /* set up a button */
+                var button = this.children[i];
+                action.p.button = button;
+
+                var x = -D.towns.w / 2 + D.town.w / 2;
+                var y = (i * D.town.m) + D.town.h + (i * D.town.h) - D.towns.h / 2;
+
+                /* give the button a back reference */
+                button.setAction(action);
+
+                /* insert the button */
+                button.p.hidden = false;
+                button.animate({ x: x, y: y }, 0.5);
+            }
+
+        },
+
+        length: function () {
+            return this.p.list.length;
+        },
+
+        /* add an action to the menu */
+        add: function (action) {
+            this.p.list.push(action);
+
+            /* TODO we can't insert 1 button for every town */
+            /* but we must have as many towns as the highest degree of any town */
+            var button = new Q.ActionButton();
+            button.p.hidden = true;
+            button.insertInto(this.stage, this);
         }
     });
 
@@ -484,6 +562,46 @@ window.addEventListener("load", function () {
 
     });
 
+    Q.UI.Button.extend("ActionButton", {
+        init: function (p) {
+            this._super(Q._extend(p || {}, {
+                label: "",
+                fill: "white",
+                border: 1,
+                shadow: 3,
+                shadowColor: "rgba(0,0,0,0.5)",
+                w: D.action.w,
+                h: D.action.h,
+                z: 0,
+                badges: []
+            }, this.action));
+
+            this.add("tween");
+        },
+
+        setAction: function (action) {
+            this.action = action;
+            this.setIcon(action.icon);
+        },
+
+        setIcon: function (icon) {
+
+        },
+
+        insertInto: function (stage, container) {
+            stage.insert(this, container);
+        },
+
+    });
+
+    Q.Sprite.extend("Action", {
+        init: function (p, callback) {
+            this.action = callback;
+
+            this._super(Q._extend(p || {}, { }));
+        }
+    });
+
     Q.UI.Button.extend("TownButton", {
         init: function (p) {
 
@@ -657,6 +775,22 @@ window.addEventListener("load", function () {
         world.insertInto(stage);
     });
 
+    Q.scene("actions", function(stage) {
+        /* fill the world with a graph of named towns */
+        var actions = new Q.Actions();
+        stage.insert(actions);
+
+        actions.add(new Q.Action({}, function () {
+            console.log("Action 1");
+        }));
+
+        actions.add(new Q.Action({}, function () {
+            console.log("Action 2");
+        }));
+
+        actions.insertInto(stage);
+    });
+
     Q.scene("stats", function(stage) {
 
         /* an actor that counts seconds */
@@ -705,6 +839,7 @@ window.addEventListener("load", function () {
         Q.state.on("change.time", stage.update_time);
     });
 
+
     //load assets
     Q.load(["investigation.png", "cult.png", "player.png", "obscure.png"], function() {
         Q.state.reset({
@@ -716,6 +851,7 @@ window.addEventListener("load", function () {
 
         Q.stageScene("world", 0, { sort: true });
         Q.stageScene("stats", 1);
+        Q.stageScene("actions", 2);
 
     });
 
