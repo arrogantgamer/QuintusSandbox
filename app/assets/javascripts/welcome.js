@@ -1,7 +1,9 @@
 /* NEXT STEPS */
+
 /*  - add additional events/abilities that are location based
  *  - towns should lose independence if their cult is too small
  *  - re-factor to make things easier
+ *  - add things the player can acquire to become more powerful. Like immortality
  *  - add travel time between towns
  *  - add portals between worlds (cliques)
  *  - add a "flash" that displays information like, "Alnwic is under investigation!"
@@ -463,7 +465,7 @@ window.addEventListener("load", function () {
         checkInvestigation: function () {
             var rand = Math.random() * 100;
 
-            if (rand < this.getCultistPercent()) {
+            if (!this.isBeingInvestigated() && rand < this.getCultistPercent()) {
                 this.p.investigations += 1;
             }
         },
