@@ -3,8 +3,11 @@ window.addEventListener("load", function () {
     var CANVAS_WIDTH = 1024;
     var CANVAS_HEIGHT = 768;
 
-    /* global dimensions object */
+    /* global display object */
     var D = {};
+
+    D.bg_color     = "#440077";
+    D.label_color = "#DDD";
 
     D.canvas = {
         w: CANVAS_WIDTH,
@@ -24,9 +27,9 @@ window.addEventListener("load", function () {
     };
 
     D.action = {
-        w: 0,
-        h: 0,
-        m: 20
+        w: (D.actions.w / 10) * 9,
+        h: (D.actions.h) / 6,
+        m: 10
     };
 
     D.town = {
@@ -233,7 +236,7 @@ window.addEventListener("load", function () {
         init: function (p) {
             this._super(p, {
                 list: [],
-                fill: "gray",
+                fill: D.bg_color,
                 x: D.towns.m + D.towns.w + D.actions.w / 2,
                 y: D.actions.m + D.actions.h / 10 + D.actions.h / 2,
                 border: 1,
@@ -266,8 +269,8 @@ window.addEventListener("load", function () {
                 var button = this.children[i];
                 action.p.button = button;
 
-                var x = -D.towns.w / 2 + D.town.w / 2;
-                var y = (i * D.town.m) + D.town.h + (i * D.town.h) - D.towns.h / 2;
+                var x = -D.actions.w / 2 + D.action.w / 2 + 20;
+                var y = (i * D.action.m) + D.action.h + (i * D.action.h) - D.actions.h / 2;
 
                 /* give the button a back reference */
                 button.setAction(action);
@@ -299,7 +302,7 @@ window.addEventListener("load", function () {
         init: function (p) {
             this._super(p, {
                 list: new Q.List(),
-                fill: "gray",
+                fill: D.bg_color,
                 x: D.towns.w / 2,
                 y: D.towns.m + D.towns.h / 10 + D.towns.h / 2,
                 border: 1,
@@ -329,7 +332,7 @@ window.addEventListener("load", function () {
             var self = this;
             var towns = this.getCurrentTowns();
             this.p.current_town = destination;
-            Q.state.set("current_town", this.p.current_town.p.name);
+            Q.state.set("current_town", this.p.current_town);
 
             for (var i = 0; i < towns.length; i++) {
                 var town = towns[i];
@@ -372,6 +375,7 @@ window.addEventListener("load", function () {
                 var offset = (i > 0)? 100 : 20;
                 var x = -D.towns.w / 2 + D.town.w / 2 - offset;
                 var y = (i * D.town.m) + D.town.h + (i * D.town.h) - D.towns.h / 2;
+                x = 0;
 
                 town_button.p.hidden = false;
                 town_button.setTown(town);
@@ -398,7 +402,7 @@ window.addEventListener("load", function () {
         add: function (town) {
             if (this.p.list.isEmpty()) {
                 this.p.current_town = town;
-                Q.state.set("current_town", this.p.current_town.p.name);
+                Q.state.set("current_town", this.p.current_town);
             }
 
             this.p.list.push(town);
@@ -418,7 +422,7 @@ window.addEventListener("load", function () {
                 name: Q.state.townName(),
                 visited: false,
                 cultists: 0,
-                population: 2000,
+                population: parseInt(Math.random() * 10, 10) * 1000,
                 obscurity: 1,
                 investigations: 0
             }));
@@ -434,7 +438,7 @@ window.addEventListener("load", function () {
         },
 
         isCurrent: function () {
-            return town.p.name === Q.state.get("current_town");
+            return town.p.name === Q.state.get("current_town").p.name;
         },
 
         isIndependent: function () {
@@ -453,7 +457,7 @@ window.addEventListener("load", function () {
         },
 
         checkInvestigation: function () {
-            var rand = Math.random() * 10;
+            var rand = Math.random() * 1000;
 
             if (rand < this.getCultistPercent()) {
                 this.p.investigations += 1;
@@ -477,7 +481,7 @@ window.addEventListener("load", function () {
 
         /* do all the visual stuff */
         updateButton: function () {
-            this.p.button.p.demographics_label.p.label = "Cultists: " + parseInt(this.p.cultists) + " (" + this.getCultistPercent() + "%)";
+            this.p.button.p.demographics_label.p.label = "cultists: " + parseInt(this.p.cultists) + " (" + this.getCultistPercent() + "%)";
 
             if (!this.p.independent && this.getCultistPercent() === 10) {
 
@@ -497,7 +501,7 @@ window.addEventListener("load", function () {
             var current_town = false;
 
             /* if you are present, cult population is the max of itself or you */
-            if (this.p.name === Q.state.get("current_town")) {
+            if (this.p.name === Q.state.get("current_town").p.name) {
                 current_town = true;
                 p_0 = Math.max(this.p.cultists, 1);
             }
@@ -566,7 +570,7 @@ window.addEventListener("load", function () {
         init: function (p) {
             this._super(Q._extend(p || {}, {
                 label: "",
-                fill: "white",
+                fill: D.label_color,
                 border: 1,
                 shadow: 3,
                 shadowColor: "rgba(0,0,0,0.5)",
@@ -580,12 +584,83 @@ window.addEventListener("load", function () {
         },
 
         setAction: function (action) {
-            this.action = action;
-            this.setIcon(action.icon);
+            this.p.action = action;
+
+            this.callback = action.action;
+            this.setName(action.p.name);
+            this.setCost(action.p.cost);
+            this.setDescription(action.p.description);
+            this.setIcon(action.p.icon);
+        },
+
+        setCost: function (cost) {
+            this.addLabel("(" + cost + " Soulfire)", {
+                x: (D.action.w / 2) - 94,
+                y: 5,
+                size: 16
+            });
+        },
+
+        addLabel: function (label_string, options) {
+            if (label_string === undefined) return;
+
+            options = options || {};
+            var label_name = label_string + '_label';
+
+            if (this.p[label_name]) {
+                this.p[label_name].destroy();
+            }
+
+            var label = new Q.UI.Text({
+                label: label_string,
+                color: "black",
+                y: options.y || 0,
+                z: 1,
+                size: options.size || 24
+            });
+
+            var w = label.p.w;
+            label.p.x = (options.x - w/2) || (-w/2);
+
+            this.p[label_name] = label;
+            this.insert(this.p[label_name]);
+        },
+
+        setName: function (name) {
+            this.addLabel(name, {
+                x: (D.action.w / 2) - 94,
+                y: -20,
+            });
+        },
+
+        setDescription: function (description) {
+            this.addLabel(description, {
+                x: ((D.action.w / 2) - 94),
+                y: 29,
+                size: 14
+            });
         },
 
         setIcon: function (icon) {
+            if (icon === undefined) return;
 
+            if (this.p.icon_label) {
+                this.p.icon_label.destroy();
+            }
+
+            this.p.icon_label = new Q.UI.Button({
+                asset: icon,
+                color: "black",
+                size: 16,
+                y: 0,
+                z: 1
+            });
+
+            var w = this.p.icon_label.p.w;
+
+            this.p.icon_label.p.x = (D.action.w / 2) - w/2 - 20;
+
+            this.insert(this.p.icon_label);
         },
 
         insertInto: function (stage, container) {
@@ -598,7 +673,9 @@ window.addEventListener("load", function () {
         init: function (p, callback) {
             this.action = callback;
 
-            this._super(Q._extend(p || {}, { }));
+            this._super(Q._extend(p || {}, {
+                cost: p.base_cost
+            }));
         }
     });
 
@@ -607,7 +684,7 @@ window.addEventListener("load", function () {
 
             this._super(Q._extend(p || {}, {
                 label: "",
-                fill: "white",
+                fill: D.label_color,
                 border: 1,
                 shadow: 3,
                 shadowColor: "rgba(0,0,0,0.5)",
@@ -627,7 +704,7 @@ window.addEventListener("load", function () {
 
         setTown: function (town) {
             this.p.town = town;
-            this.setName(town.p.name);
+            this.setName(town.p.name, town.p.population);
             this.setDemographics({
                 cultists: parseInt(town.p.cultists, 10),
                 percent: parseInt(town.getCultistPercent())
@@ -697,10 +774,11 @@ window.addEventListener("load", function () {
 
             /* prepare the number of cultists */
             this.p.demographics_label = new Q.UI.Text({
-                label: "Cultists: " + demographics.cultists + " (" + demographics.percent + "%)",
+                label: "cultists: " + demographics.cultists + " (" + demographics.percent + "%)",
                 color: "black",
-                y: 20,
-                z: 1
+                y: 35,
+                z: 1,
+                size: 20
             })
 
             var w = this.p.demographics_label.p.w;
@@ -710,9 +788,10 @@ window.addEventListener("load", function () {
             this.insert(this.p.demographics_label);
         },
 
-        setName: function (name) {
-            if (this.p.name_label) {
+        setName: function (name, population) {
+            if (this.p.name_label || this.p.population_label) {
                 this.p.name_label.destroy();
+                this.p.population_label.destroy();
             }
 
             this.p.name_label = new Q.UI.Text({
@@ -722,10 +801,21 @@ window.addEventListener("load", function () {
                 z: 1
             });
 
-            var w = this.p.name_label.p.w;
+            this.p.population_label = new Q.UI.Text({
+                label: "population: " + population,
+                color: "black",
+                y: 10,
+                z: 1,
+                size: 20
+            });
 
-            this.p.name_label.p.x = (D.town.w / 2) - w/2 - 30;
+            var n_w = this.p.name_label.p.w;
+            var p_w = this.p.population_label.p.w;
+
+            this.p.name_label.p.x       = (D.town.w / 2) - n_w/2 - 30;
+            this.p.population_label.p.x = (D.town.w / 2) - p_w/2 - 30;
             this.insert(this.p.name_label);
+            this.insert(this.p.population_label);
         },
 
         insertInto: function (stage, container) {
@@ -780,12 +870,22 @@ window.addEventListener("load", function () {
         var actions = new Q.Actions();
         stage.insert(actions);
 
-        actions.add(new Q.Action({}, function () {
-            console.log("Action 1");
+        actions.add(new Q.Action({
+            name: "Sacrifice",
+            description: "Transforms cultists into soulfire.",
+            icon: "sacrifice.png",
+            base_cost: 0
+        }, function () {
+            Q.state.trigger("sacrifice");
         }));
 
-        actions.add(new Q.Action({}, function () {
-            console.log("Action 2");
+        actions.add(new Q.Action({
+            name: "Obscure",
+            description: "Shrouds cult activity in mysteries.",
+            icon: "obscure.png",
+            base_cost: 100
+        }, function () {
+            Q.state.trigger("obscure");
         }));
 
         actions.insertInto(stage);
@@ -802,7 +902,7 @@ window.addEventListener("load", function () {
         };
 
         var stats_container = stage.insert(new Q.UI.Container({
-            fill: "gray",
+            fill: D.bg_color,
             x: dimensions.w / 2,
             y: dimensions.h / 2,
             border: 1,
@@ -839,14 +939,13 @@ window.addEventListener("load", function () {
         Q.state.on("change.time", stage.update_time);
     });
 
-
     //load assets
-    Q.load(["investigation.png", "cult.png", "player.png", "obscure.png"], function() {
+    Q.load(["sacrifice.png", "investigation.png", "cult.png", "player.png", "obscure.png"], function() {
         Q.state.reset({
             soulfire: 0,
             time: 0,
             next_town: 1,
-            current_town: ""
+            current_town: { name: "" }
         });
 
         Q.stageScene("world", 0, { sort: true });
