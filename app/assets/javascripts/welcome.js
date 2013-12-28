@@ -62,7 +62,7 @@ window.addEventListener("load", function () {
         init: function (p) {
             this._super(p, {
                 sheet: "tiles",
-                frame: 2,
+                frame: 4,
                 x: 410,
                 y: 0
 
@@ -75,7 +75,7 @@ window.addEventListener("load", function () {
     Q.Sprite.extend("Block", {
         init: function (p) {
             this._super(p, {
-                asset: "color_tiles.png",
+                asset: "building_tiles.png",
             });
 
             this.add("2d");
@@ -100,9 +100,9 @@ window.addEventListener("load", function () {
     });
 
     //load assets
-    Q.load(["color_tiles.png", "level.json"], function() {
+    Q.load(["building_tiles.png", "level.json"], function() {
         Q.state.reset({ });
-        Q.sheet("tiles", "color_tiles.png", { tilew: 64, tileh: 64 });
+        Q.sheet("tiles", "building_tiles.png", { tilew: 64, tileh: 64 });
 
         Q.stageScene("obstacles", 0);
 
@@ -328,16 +328,25 @@ window.addEventListener("load", function () {
                     var pit = !pit;
                     var interval = generateInterval(Math.random() * 10);
                     var height = interval % 2 + 1;
-                    var tile = (pit)? 0 : 1;
+                    var tile;
                     interval = (pit)? interval : interval * 2;
+                    var offset = (height - 1) * 4;
 
                     for (var i = 0; i < interval; i++) {
-                        tiles[2].push(1);
+                        if (i === 0) {
+                            tile = (pit)? 0 : 1 + offset;
+                        } else if (i === interval - 1) {
+                            tile = (pit)? 0 : 3 + offset;
+                        } else {
+                            tile = (pit)? 0 : 2 + offset;
+                        }
+
+                        tiles[2].push(4);
 
                         // counting from bottom to top
                         for (var j = 0; j < 2; j++) {
-                            if (j < height) {
-                                tiles[1 - j].push(tile);
+                            if (!pit && j < height) {
+                                tiles[1 - j].push(tile - j * 4);
                             } else {
                                 tiles[1 - j].push(0);
                             }
