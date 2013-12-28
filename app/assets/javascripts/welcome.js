@@ -58,17 +58,26 @@ window.addEventListener("load", function () {
         };
     };
 
+    Q.animations('player', {
+        run_right: { frames: [2, 3, 4, 5, 6], rate: 1/8 }
+    });
+
     Q.Sprite.extend("Player", {
         init: function (p) {
             this._super(p, {
-                sheet: "tiles",
-                frame: 4,
+                sheet: "runner",
+                frame: 1,
                 x: 410,
-                y: 0
+                y: 0,
+                sprite: 'player'
 
             });
 
-            this.add("2d, runnerControls");
+            this.add("2d, animation, runnerControls");
+        },
+
+        step: function () {
+            this.play("run_right");
         }
     });
 
@@ -100,9 +109,10 @@ window.addEventListener("load", function () {
     });
 
     //load assets
-    Q.load(["building_tiles.png", "level.json"], function() {
+    Q.load(["building_tiles.png", "level.json", "runner_tiles.png"], function() {
         Q.state.reset({ });
         Q.sheet("tiles", "building_tiles.png", { tilew: 64, tileh: 64 });
+        Q.sheet("runner", "runner_tiles.png", { tilew: 64, tileh: 64 });
 
         Q.stageScene("obstacles", 0);
 
