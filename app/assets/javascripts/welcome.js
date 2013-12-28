@@ -327,13 +327,21 @@ window.addEventListener("load", function () {
                 while (new_tiles < 40) {
                     var pit = !pit;
                     var interval = generateInterval(Math.random() * 10);
+                    var height = interval % 2 + 1;
                     var tile = (pit)? 0 : 1;
                     interval = (pit)? interval : interval * 2;
 
                     for (var i = 0; i < interval; i++) {
-                        tiles[0].push(0);
-                        tiles[1].push(tile);
                         tiles[2].push(1);
+
+                        // counting from bottom to top
+                        for (var j = 0; j < 2; j++) {
+                            if (j < height) {
+                                tiles[1 - j].push(tile);
+                            } else {
+                                tiles[1 - j].push(0);
+                            }
+                        }
                     }
 
                     new_tiles += interval;
